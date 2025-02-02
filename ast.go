@@ -1,5 +1,7 @@
 package jsongoparser
 
+import "strings"
+
 // Object represents a JSON object - a collection of key-value pairs.
 type Object struct {
 	// Token is the opening '{' token
@@ -12,7 +14,22 @@ type Object struct {
 func (o *Object) TokenLiteral() string { return o.Token.Literal }
 
 // String returns a simplified string representation of the object.
-func (o *Object) String() string { return "{}" } // Simplified for now
+func (o *Object) String() string {
+	var b strings.Builder
+	b.WriteString("{")
+	i := 0
+	for k, v := range o.Pairs {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(k)
+		b.WriteString(": ")
+		b.WriteString(v.String())
+		i++
+	}
+	b.WriteString("}")
+	return b.String()
+}
 
 // valueNode is a placeholder method to ensure type safety within the Value interface.
 func (o *Object) valueNode() {}
