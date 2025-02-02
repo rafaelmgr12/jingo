@@ -45,12 +45,10 @@ func (p *Parser) nextToken() {
 
 // ParseJSON is the entry point for parsing JSON content. It returns the parsed
 // Value and an error if the parsing fails.
-//
 // The function expects the JSON input to start with either a '{' or a '['.
 func (p *Parser) ParseJSON() (Value, error) {
 	var value Value
 
-	// JSON must start with either { or [
 	switch p.currentToken.Type {
 	case TokenBraceOpen:
 		value = p.parseObject()
@@ -61,10 +59,9 @@ func (p *Parser) ParseJSON() (Value, error) {
 			p.currentToken.Type, p.currentToken.Line, p.currentToken.Column)
 	}
 
-	// After parsing the main value, we should be at EOF
-	if p.peekToken.Type != TokenEOF {
-		return nil, fmt.Errorf("unexpected token after main value: %s at line %d, column %d",
-			p.peekToken.Type, p.peekToken.Line, p.peekToken.Column)
+	// Check for parsing errors
+	if len(p.errors) > 0 {
+		return nil, fmt.Errorf("%s", p.errors[0]) // Return the first error
 	}
 
 	return value, nil
@@ -74,7 +71,7 @@ func (p *Parser) ParseJSON() (Value, error) {
 // It returns an Object value containing the key-value pairs.
 func (p *Parser) parseObject() Value {
 	object := &Object{
-		Token: p.currentToken, // Store opening {
+		Token: p.currentToken,
 		Pairs: make(map[string]Value),
 	}
 
@@ -88,14 +85,33 @@ func (p *Parser) parseObject() Value {
 
 	// Parse first key-value pair
 	key, value := p.parseKeyValuePair()
+	if key == "" && value == nil {
+		return nil
+	}
 	object.Pairs[key] = value
 
 	// Parse additional key-value pairs
 	for p.peekToken.Type == TokenComma {
 		p.nextToken() // move past comma
+
+		// Check for trailing comma
+		if p.peekToken.Type == TokenBraceClose {
+			p.addError("unexpected token ,")
+			return nil
+		}
+
 		p.nextToken() // move to next key
-		key, value = p.parseKeyValuePair()
+		key, value := p.parseKeyValuePair()
+		if key == "" && value == nil {
+			return nil
+		}
 		object.Pairs[key] = value
+	}
+
+	// Handle EOF before closing brace
+	if p.peekToken.Type == TokenEOF {
+		p.addError("expected }, got EOF")
+		return nil
 	}
 
 	// Ensure we have a closing }
@@ -113,7 +129,7 @@ func (p *Parser) parseObject() Value {
 func (p *Parser) parseKeyValuePair() (string, Value) {
 	// Key must be a string
 	if p.currentToken.Type != TokenString {
-		p.addError("expected string key, got %s", p.currentToken.Type)
+		p.addError("expected string key")
 		return "", nil
 	}
 
@@ -129,7 +145,6 @@ func (p *Parser) parseKeyValuePair() (string, Value) {
 	p.nextToken() // move past colon
 
 	value := p.parseValue()
-
 	return key, value
 }
 
@@ -172,7 +187,6 @@ func (p *Parser) parseArray() Value {
 }
 
 // parseValue parses any JSON value. It returns the parsed value.
-//
 // The function handles strings, numbers, booleans, nulls, objects, and arrays.
 func (p *Parser) parseValue() Value {
 	switch p.currentToken.Type {
@@ -197,6 +211,10 @@ func (p *Parser) parseValue() Value {
 	case TokenBracketOpen:
 		return p.parseArray()
 
+	case TokenIllegal:
+		p.addError("expected string key")
+		return nil
+
 	default:
 		p.addError("unexpected token %s", p.currentToken.Type)
 		return nil
@@ -209,8 +227,9 @@ func (p *Parser) parseValue() Value {
 // where the error occurred.
 func (p *Parser) addError(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
-	p.errors = append(p.errors, fmt.Sprintf("Line %d, Column %d: %s",
-		p.currentToken.Line, p.currentToken.Column, msg))
+	formattedMsg := fmt.Sprintf("Line %d, Column %d: %s",
+		p.currentToken.Line, p.currentToken.Column, msg)
+	p.errors = append(p.errors, formattedMsg)
 }
 
 // Errors returns all parsing errors encountered by the parser.
