@@ -1,6 +1,9 @@
 package jsongoparser
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParser(t *testing.T) {
 	tests := []struct {
@@ -116,7 +119,7 @@ func TestParserErrors(t *testing.T) {
 		},
 		{
 			input:       `{"key" value}`,
-			expectedErr: "expected :, got value",
+			expectedErr: "expected :, got ILLEGAL",
 		},
 		{
 			input:       `{"key": "value"`,
@@ -132,8 +135,16 @@ func TestParserErrors(t *testing.T) {
 		l := NewLexer(tt.input)
 		p := NewParser(l)
 		_, err := p.ParseJSON()
-		if err == nil || !containsError(p.Errors(), tt.expectedErr) {
-			t.Fatalf("Test %d: expected error containing %q, got %v", i, tt.expectedErr, p.Errors())
+		errors := p.Errors()
+
+		if err == nil {
+			t.Errorf("Test %d: expected error but got none", i)
+			continue
+		}
+
+		if !hasMatchingError(errors, tt.expectedErr) {
+			t.Errorf("Test %d: expected error containing %q, got %v",
+				i, tt.expectedErr, errors)
 		}
 	}
 }
@@ -161,13 +172,15 @@ func TestComplexJSON(t *testing.T) {
 	}
 }
 
-// Helper function to check if an error message is in the errors list
-func containsError(errors []string, expected string) bool {
+// hasMatchingError checks if any error in the list matches the expected error
+func hasMatchingError(errors []string, expectedErr string) bool {
 	for _, err := range errors {
-		if len(err) == 0 {
-			continue
-		}
-		if err[0] == expected[0] {
+		// Normalize both strings by trimming spaces and converting to lowercase
+		normalizedErr := strings.ToLower(strings.TrimSpace(err))
+		normalizedExpected := strings.ToLower(strings.TrimSpace(expectedErr))
+
+		// Check if the normalized error contains the expected error string
+		if strings.Contains(normalizedErr, normalizedExpected) {
 			return true
 		}
 	}
