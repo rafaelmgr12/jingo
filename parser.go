@@ -194,7 +194,12 @@ func (p *Parser) parseValue() Value {
 		return &StringLiteral{Token: p.currentToken, Value: p.currentToken.Literal}
 
 	case TokenNumber:
-		return &NumberLiteral{Token: p.currentToken, Value: p.currentToken.Literal}
+		num := NewNumberLiteral(p.currentToken)
+		if !num.IsValidNumber() {
+			p.addError("invalid number format: %s", p.currentToken.Literal)
+			return nil
+		}
+		return num
 
 	case TokenTrue:
 		return &Boolean{Token: p.currentToken, Value: true}

@@ -123,22 +123,60 @@ func (l *Lexer) readString(line, column int) Token {
 }
 
 // readNumber reads a number token.
+// readNumber reads and validates a JSON number token.
 func (l *Lexer) readNumber(line, column int) Token {
-	position := l.position
+	start := l.position
 
 	// Handle negative numbers
 	if l.ch == '-' {
 		l.readChar()
+		if !isDigit(l.ch) {
+			return Token{
+				Type:    TokenIllegal,
+				Literal: "Invalid number format: digit expected after '-'",
+				Line:    line,
+				Column:  column,
+			}
+		}
 	}
 
-	// Read integer part
-	for isDigit(l.ch) {
+	// First digit cannot be zero unless it's followed by a decimal point
+	if l.ch == '0' {
 		l.readChar()
+		if isDigit(l.ch) {
+			return Token{
+				Type:    TokenIllegal,
+				Literal: "Invalid number format: leading zeros not allowed",
+				Line:    line,
+				Column:  column,
+			}
+		}
+	} else if isNonZeroDigit(l.ch) {
+		// Read integer part
+		l.readChar()
+		for isDigit(l.ch) {
+			l.readChar()
+		}
+	} else if l.ch != '.' { // If not a digit and not a decimal point, it's invalid
+		return Token{
+			Type:    TokenIllegal,
+			Literal: "Invalid number format: expected digit",
+			Line:    line,
+			Column:  column,
+		}
 	}
 
 	// Handle fractional part
 	if l.ch == '.' {
 		l.readChar()
+		if !isDigit(l.ch) {
+			return Token{
+				Type:    TokenIllegal,
+				Literal: "Invalid number format: digit expected after decimal point",
+				Line:    line,
+				Column:  column,
+			}
+		}
 		for isDigit(l.ch) {
 			l.readChar()
 		}
@@ -150,6 +188,14 @@ func (l *Lexer) readNumber(line, column int) Token {
 		if l.ch == '+' || l.ch == '-' {
 			l.readChar()
 		}
+		if !isDigit(l.ch) {
+			return Token{
+				Type:    TokenIllegal,
+				Literal: "Invalid number format: digit expected in exponent",
+				Line:    line,
+				Column:  column,
+			}
+		}
 		for isDigit(l.ch) {
 			l.readChar()
 		}
@@ -157,7 +203,7 @@ func (l *Lexer) readNumber(line, column int) Token {
 
 	return Token{
 		Type:    TokenNumber,
-		Literal: l.input[position:l.position],
+		Literal: l.input[start:l.position],
 		Line:    line,
 		Column:  column,
 	}
@@ -204,4 +250,8 @@ func isLetter(ch byte) bool {
 // isDigit checks if a character is a digit.
 func isDigit(ch byte) bool {
 	return '0' <= ch && ch <= '9'
+}
+
+func isNonZeroDigit(ch byte) bool {
+	return '1' <= ch && ch <= '9'
 }

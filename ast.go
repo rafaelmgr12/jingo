@@ -1,6 +1,10 @@
 package jsongoparser
 
-import "strings"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 // Object represents a JSON object - a collection of key-value pairs.
 type Object struct {
@@ -74,16 +78,64 @@ type NumberLiteral struct {
 	Token Token
 	// Value is the number as a string (we'll parse it when needed).
 	Value string
+	// Float is the actual float value of the number.
+	Float float64
+	// Int is the actual integer value of the number.
+	Int int64
+	// IsInt is a flag to indicate if the number is an integer.
+	IsInt bool
+	// IsValid is a flag to indicate if the number is valid JSON number.
+	IsValid bool
+}
+
+// NewNumberLiteral creates a new NumberLiteral with proper validation and parsing
+func NewNumberLiteral(token Token) *NumberLiteral {
+	n := &NumberLiteral{
+		Token: token,
+		Value: token.Literal,
+	}
+
+	// Try parsing as int first
+	if i, err := strconv.ParseInt(token.Literal, 10, 64); err == nil {
+		n.Int = i
+		n.Float = float64(i)
+		n.IsInt = true
+		n.IsValid = true
+		return n
+	}
+
+	// Try parsing as float
+	if f, err := strconv.ParseFloat(token.Literal, 64); err == nil {
+		n.Float = f
+		n.IsInt = false
+		n.IsValid = true
+		return n
+	}
+
+	// If we get here, the number is not valid
+	n.IsValid = false
+	return n
+
 }
 
 // TokenLiteral returns the literal value of the token that defines the number.
 func (n *NumberLiteral) TokenLiteral() string { return n.Token.Literal }
 
 // String returns the number value as a string.
-func (n *NumberLiteral) String() string { return n.Value }
+func (n *NumberLiteral) String() string {
+	if n.IsInt {
+		return fmt.Sprintf("%d", n.Int)
+	}
+	return fmt.Sprintf("%f", n.Float)
+}
 
 // valueNode is a placeholder method to ensure type safety within the Value interface.
 func (n *NumberLiteral) valueNode() {}
+
+// IsValidNumber returns whether the number is a valid JSON number
+func (n *NumberLiteral) IsValidNumber() bool {
+	return n.IsValid
+}
 
 // Boolean represents a JSON boolean value (true or false).
 type Boolean struct {

@@ -1,6 +1,8 @@
 package jsongoparser
 
 import (
+	"fmt"
+	"math"
 	"strings"
 	"testing"
 )
@@ -169,6 +171,115 @@ func TestComplexJSON(t *testing.T) {
 
 	if obj, ok := value.(*Object); !ok || len(obj.Pairs) != 4 {
 		t.Fatalf("Parsing resulted in wrong object structure: %+v", value)
+	}
+}
+
+func TestNumberParsing(t *testing.T) {
+	tests := []struct {
+		input      string
+		wantInt    bool
+		wantValue  interface{} // can be int64 or float64
+		shouldFail bool
+	}{
+		// Valid cases
+		{
+			input:      `{"num": 123}`,
+			wantInt:    true,
+			wantValue:  int64(123),
+			shouldFail: false,
+		},
+		{
+			input:      `{"num": 123.456}`,
+			wantInt:    false,
+			wantValue:  float64(123.456),
+			shouldFail: false,
+		},
+		{
+			input:      `{"num": -123}`,
+			wantInt:    true,
+			wantValue:  int64(-123),
+			shouldFail: false,
+		},
+		{
+			input:      `{"num": 1e5}`,
+			wantInt:    false,
+			wantValue:  float64(100000),
+			shouldFail: false,
+		},
+		{
+			input:      `{"num": 1.2e-3}`,
+			wantInt:    false,
+			wantValue:  float64(0.0012),
+			shouldFail: false,
+		},
+		// Invalid cases
+		{
+			input:      `{"num": 01234}`, // Leading zeros not allowed
+			shouldFail: true,
+		},
+		{
+			input:      `{"num": .123}`, // Must start with digit
+			shouldFail: true,
+		},
+		{
+			input:      `{"num": 123.}`, // Must have digits after decimal
+			shouldFail: true,
+		},
+		{
+			input:      `{"num": -}`, // Must have digits after minus
+			shouldFail: true,
+		},
+		{
+			input:      `{"num": 1.2e}`, // Must have digits after exponent
+			shouldFail: true,
+		},
+		{
+			input:      `{"num": 1.2e-}`, // Must have digits after exponent sign
+			shouldFail: true,
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("Case %d: %s", i, tt.input), func(t *testing.T) {
+			l := NewLexer(tt.input)
+			p := NewParser(l)
+			value, err := p.ParseJSON()
+
+			if tt.shouldFail {
+				if err == nil {
+					t.Errorf("Expected error for input %s but got none", tt.input)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			obj, ok := value.(*Object)
+			if !ok {
+				t.Fatalf("Expected Object, got %T", value)
+			}
+
+			num, ok := obj.Pairs["num"].(*NumberLiteral)
+			if !ok {
+				t.Fatalf("Expected NumberLiteral, got %T", obj.Pairs["num"])
+			}
+
+			if num.IsInt != tt.wantInt {
+				t.Errorf("IsInt = %v, want %v", num.IsInt, tt.wantInt)
+			}
+
+			if tt.wantInt {
+				if num.Int != tt.wantValue.(int64) {
+					t.Errorf("Int = %d, want %d", num.Int, tt.wantValue.(int64))
+				}
+			} else {
+				if math.Abs(num.Float-tt.wantValue.(float64)) > 1e-10 {
+					t.Errorf("Float = %g, want %g", num.Float, tt.wantValue.(float64))
+				}
+			}
+		})
 	}
 }
 
