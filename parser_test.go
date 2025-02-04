@@ -318,6 +318,26 @@ func FuzzParseJSON(f *testing.F) {
 	})
 }
 
+func BenchmarkParseJSON(b *testing.B) {
+	input := `{
+		"key1": "value1",
+		"key2": 123,
+		"key3": [1, 2, 3],
+		"key4": {"nestedKey": "nestedValue"},
+		"key5": true,
+		"key6": null
+	}`
+
+	for i := 0; i < b.N; i++ {
+		lexer := NewLexer(input)
+		parser := NewParser(lexer)
+		_, err := parser.ParseJSON()
+		if err != nil {
+			b.Fatalf("Error parsing JSON: %v", err)
+		}
+	}
+}
+
 // isExpectedError checks if the error is one of the expected errors
 func isExpectedError(err error) bool {
 	expectedErrors := []string{
