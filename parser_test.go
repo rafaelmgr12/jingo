@@ -283,6 +283,66 @@ func TestNumberParsing(t *testing.T) {
 	}
 }
 
+func FuzzParseJSON(f *testing.F) {
+	// Add initial seed corpus
+	f.Add(`{"key": "value"}`)
+	f.Add(`[1, 2, 3]`)
+	f.Add(`{"nested": {"key": "value"}, "array": [1, 2, 3]}`)
+	f.Add(`{"number": 12345}`)
+	f.Add(`{"boolean": true}`)
+	f.Add(`{"nullValue": null}`)
+	f.Add(`{"escapedString": "Line1\nLine2"}`)
+	f.Add(`{"unicode": "こんにちは"}`)
+	f.Add(`{"specialChars": "!@#$%^&*()_+-=~"}`)
+	f.Add(`{"emptyObject": {}}`)
+	f.Add(`{"emptyArray": []}`)
+	f.Add(`{"mixedArray": [1, "two", true, null, {"key": "value"}]}`)
+	f.Add(`{"deeplyNested": {"level1": {"level2": {"level3": {"level4": "value"}}}}}`)
+
+	f.Fuzz(func(t *testing.T, input string) {
+		lexer := NewLexer(input)
+		parser := NewParser(lexer)
+		parsed, err := parser.ParseJSON()
+
+		if err != nil {
+			// Check for specific error types or messages
+			if !isExpectedError(err) {
+				t.Errorf("Unexpected error parsing JSON: %v", err)
+			}
+		} else {
+			// Validate the parsed output for known valid inputs
+			if !isValidParsedOutput(parsed) {
+				t.Errorf("Parsed output is invalid for input: %s", input)
+			}
+		}
+	})
+}
+
+// isExpectedError checks if the error is one of the expected errors
+func isExpectedError(err error) bool {
+	expectedErrors := []string{
+		"unexpected token",
+		"invalid character",
+		"unterminated string",
+		"invalid number format",
+	}
+	for _, expectedErr := range expectedErrors {
+		if strings.Contains(err.Error(), expectedErr) {
+			return true
+		}
+	}
+	return false
+}
+
+// isValidParsedOutput validates the parsed output for known valid inputs
+func isValidParsedOutput(parsed interface{}) bool {
+	switch parsed.(type) {
+	case *Object, *Array:
+		return true
+	}
+	return false
+}
+
 // hasMatchingError checks if any error in the list matches the expected error
 func hasMatchingError(errors []string, expectedErr string) bool {
 	for _, err := range errors {
