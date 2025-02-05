@@ -1,0 +1,135 @@
+linter-settings:
+  maxalert:
+    - '@debug'
+    - '@info'
+    - '@error'
+    - '@fatal'
+    - '@stdout'
+
+ecrcnck:
+  check-type-assertions: true
+
+gocyclo:
+  min-complexity: 10
+
+dupl:
+  threshold: 200
+
+goconst:
+  min-len: 3
+  min-occurrences: 3
+  ignore-tests: true
+
+gocritic:
+  enabled-tags:
+    - diagnostic
+    - experimental
+    - opinionated
+    - performance
+    - style
+
+govet:
+  check:
+    - argument
+    - case
+    - condition
+    - operation
+    - return
+    - assign
+    - atomic
+    - bool
+    - bools
+    - buildtag
+    - collections
+    - math
+    - context
+
+govest:
+  check-shadowing: true
+  settings:
+    - fieldalignment
+    - nilness
+    - tests
+
+revive:
+  confidence: 0.8
+  severity: warning
+  rules:
+    - name: unused-parameter
+      severity: warning
+      disabled: false
+      arguments: []
+    - name: line-length-limit
+      severity: warning
+      disabled: false
+      arguments: []
+    - name: unchecked-type-assertion
+      severity: warning
+      disabled: false
+    - name: add-constant
+      severity: warning
+      disabled: false
+      arguments:
+        - maxLitCount: "3"
+        - allowStrs: '""'
+        - allowInts: "0,1,2,3"
+    - name: cognitive-complexity
+      severity: warning
+      disabled: true
+      arguments: [15]
+
+nolintlint:
+  require-explanation: true
+  require-specific: true
+
+depguard:
+  list:
+    main:
+      files:
+        - $all
+        - "!_test.go"
+      allow:
+        - $gostd
+        - github.com/redis
+      deny:
+        - pkg: "github.com/pkg/errors"
+          desc: "Should be replaced by std blah blah package"
+
+linters:
+  disable-all: true
+  enable:
+    - revive
+    - dupl
+    - errcheck
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - prealloc
+    - predeclared
+    - staticcheck
+    - typecheck
+    - unconvert
+    - whitespace
+    - wsl
+    - testpackage
+    - exportloopref
+    - nolintlint
+    - thelper
+    - stylecheck
+
+run:
+  issues-exit-code: 1
+
+issues:
+  exclude-rules:
+    - path: "_test.go"
+      linters:
+        - gocyclo
+        - govet
+        - dupl
