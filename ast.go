@@ -20,18 +20,24 @@ func (o *Object) TokenLiteral() string { return o.Token.Literal }
 // String returns a simplified string representation of the object.
 func (o *Object) String() string {
 	var b strings.Builder
+
 	b.WriteString("{")
+
 	i := 0
 	for k, v := range o.Pairs {
 		if i > 0 {
 			b.WriteString(", ")
 		}
+
 		b.WriteString(k)
 		b.WriteString(": ")
 		b.WriteString(v.String())
+
 		i++
 	}
+
 	b.WriteString("}")
+
 	return b.String()
 }
 
@@ -101,6 +107,7 @@ func NewNumberLiteral(token Token) *NumberLiteral {
 		n.Float = float64(i)
 		n.IsInt = true
 		n.IsValid = true
+
 		return n
 	}
 
@@ -109,13 +116,14 @@ func NewNumberLiteral(token Token) *NumberLiteral {
 		n.Float = f
 		n.IsInt = false
 		n.IsValid = true
+
 		return n
 	}
 
 	// If we get here, the number is not valid
 	n.IsValid = false
-	return n
 
+	return n
 }
 
 // TokenLiteral returns the literal value of the token that defines the number.
@@ -126,6 +134,7 @@ func (n *NumberLiteral) String() string {
 	if n.IsInt {
 		return fmt.Sprintf("%d", n.Int)
 	}
+
 	return fmt.Sprintf("%f", n.Float)
 }
 

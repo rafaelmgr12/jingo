@@ -88,6 +88,7 @@ func (p *Parser) parseObject() Value {
 	if key == "" && value == nil {
 		return nil
 	}
+
 	object.Pairs[key] = value
 
 	// Parse additional key-value pairs
@@ -101,10 +102,12 @@ func (p *Parser) parseObject() Value {
 		}
 
 		p.nextToken() // move to next key
+
 		key, value := p.parseKeyValuePair()
 		if key == "" && value == nil {
 			return nil
 		}
+
 		object.Pairs[key] = value
 	}
 
@@ -121,6 +124,7 @@ func (p *Parser) parseObject() Value {
 	}
 
 	p.nextToken() // move past }
+
 	return object
 }
 
@@ -145,6 +149,7 @@ func (p *Parser) parseKeyValuePair() (string, Value) {
 	p.nextToken() // move past colon
 
 	value := p.parseValue()
+
 	return key, value
 }
 
@@ -183,6 +188,7 @@ func (p *Parser) parseArray() Value {
 	}
 
 	p.nextToken() // move past ]
+
 	return array
 }
 
@@ -199,6 +205,7 @@ func (p *Parser) parseValue() Value {
 			p.addError("invalid number format: %s", p.currentToken.Literal)
 			return nil
 		}
+
 		return num
 
 	case TokenTrue:

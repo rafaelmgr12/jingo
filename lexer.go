@@ -25,6 +25,7 @@ func NewLexer(input string) *Lexer {
 		column: 0,
 	}
 	l.readChar()
+
 	return l
 }
 
@@ -67,6 +68,7 @@ func (l *Lexer) NextToken() Token {
 	}
 
 	l.readChar()
+
 	return t
 }
 
@@ -80,14 +82,14 @@ func (l *Lexer) readChar() {
 
 	// Update position tracking
 	l.position = l.readPosition
-	l.readPosition += 1
+	l.readPosition++
 
 	// Update line and column numbers
 	if l.ch == '\n' {
-		l.line += 1
+		l.line++
 		l.column = 0
 	} else {
-		l.column += 1
+		l.column++
 	}
 }
 
@@ -102,14 +104,17 @@ func (l *Lexer) skipWhitespace() {
 func (l *Lexer) readString(line, column int) Token {
 	l.readChar()
 	position := l.position
+
 	for l.ch != '"' && l.ch != 0 {
 		// Handle escape sequences
 		if l.ch == '\\' {
 			l.readChar()
+
 			if l.ch == 0 {
 				return Token{Type: TokenIllegal, Literal: "Unterminated string", Line: line, Column: column}
 			}
 		}
+
 		l.readChar()
 	}
 
@@ -119,10 +124,10 @@ func (l *Lexer) readString(line, column int) Token {
 
 	str := l.input[position:l.position]
 	l.readChar() // Skip the closing quote
+
 	return Token{Type: TokenString, Literal: str, Line: line, Column: column}
 }
 
-// readNumber reads a number token.
 // readNumber reads and validates a JSON number token.
 func (l *Lexer) readNumber(line, column int) Token {
 	start := l.position
@@ -130,6 +135,7 @@ func (l *Lexer) readNumber(line, column int) Token {
 	// Handle negative numbers
 	if l.ch == '-' {
 		l.readChar()
+
 		if !isDigit(l.ch) {
 			return Token{
 				Type:    TokenIllegal,
@@ -141,8 +147,10 @@ func (l *Lexer) readNumber(line, column int) Token {
 	}
 
 	// First digit cannot be zero unless it's followed by a decimal point
-	if l.ch == '0' {
+	switch {
+	case l.ch == '0':
 		l.readChar()
+
 		if isDigit(l.ch) {
 			return Token{
 				Type:    TokenIllegal,
@@ -151,13 +159,14 @@ func (l *Lexer) readNumber(line, column int) Token {
 				Column:  column,
 			}
 		}
-	} else if isNonZeroDigit(l.ch) {
+	case isNonZeroDigit(l.ch):
 		// Read integer part
 		l.readChar()
+
 		for isDigit(l.ch) {
 			l.readChar()
 		}
-	} else if l.ch != '.' { // If not a digit and not a decimal point, it's invalid
+	case l.ch != '.': // If not a digit and not a decimal point, it's invalid
 		return Token{
 			Type:    TokenIllegal,
 			Literal: "Invalid number format: expected digit",
@@ -169,6 +178,7 @@ func (l *Lexer) readNumber(line, column int) Token {
 	// Handle fractional part
 	if l.ch == '.' {
 		l.readChar()
+
 		if !isDigit(l.ch) {
 			return Token{
 				Type:    TokenIllegal,
@@ -177,6 +187,7 @@ func (l *Lexer) readNumber(line, column int) Token {
 				Column:  column,
 			}
 		}
+
 		for isDigit(l.ch) {
 			l.readChar()
 		}
@@ -185,9 +196,11 @@ func (l *Lexer) readNumber(line, column int) Token {
 	// Handle exponential notation
 	if l.ch == 'e' || l.ch == 'E' {
 		l.readChar()
+
 		if l.ch == '+' || l.ch == '-' {
 			l.readChar()
 		}
+
 		if !isDigit(l.ch) {
 			return Token{
 				Type:    TokenIllegal,
@@ -196,6 +209,7 @@ func (l *Lexer) readNumber(line, column int) Token {
 				Column:  column,
 			}
 		}
+
 		for isDigit(l.ch) {
 			l.readChar()
 		}
@@ -211,34 +225,42 @@ func (l *Lexer) readNumber(line, column int) Token {
 
 // readTrue reads a true boolean token.
 func (l *Lexer) readTrue(line, column int) Token {
-	if l.readWord() == "true" {
+	word := l.readWord()
+	if word == "true" {
 		return Token{Type: TokenTrue, Literal: "true", Line: line, Column: column}
 	}
+
 	return Token{Type: TokenIllegal, Literal: "Invalid token", Line: line, Column: column}
 }
 
 // readFalse reads a false boolean token.
 func (l *Lexer) readFalse(line, column int) Token {
-	if l.readWord() == "false" {
+	word := l.readWord()
+	if word == "false" {
 		return Token{Type: TokenFalse, Literal: "false", Line: line, Column: column}
 	}
+
 	return Token{Type: TokenIllegal, Literal: "Invalid token", Line: line, Column: column}
 }
 
 // readNull reads a null token.
 func (l *Lexer) readNull(line, column int) Token {
-	if l.readWord() == "null" {
+	word := l.readWord()
+	if word == "null" {
 		return Token{Type: TokenNull, Literal: "null", Line: line, Column: column}
 	}
+
 	return Token{Type: TokenIllegal, Literal: "Invalid token", Line: line, Column: column}
 }
 
 // readWord reads a word token (used for true, false, null).
 func (l *Lexer) readWord() string {
 	position := l.position
+
 	for isLetter(l.ch) {
 		l.readChar()
 	}
+
 	return l.input[position:l.position]
 }
 
