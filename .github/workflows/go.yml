@@ -5,24 +5,52 @@ name: Go
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
+    strategy:
+      matrix:
+        go-version: [ '1.19', '1.20', '1.21' ]
 
-    - name: Set up Go
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.20'
+        go-version: ${{ matrix.go-version }}
+        cache: true
 
-    - name: Build
-      run: go build -v ./...
+    - name: Install dependencies
+      run: go mod download
 
-    - name: Test
-      run: go test -v ./...
+    - name: Run tests
+      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.txt
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=5m --config=.golangci.yml
+          only-new-issues: true
