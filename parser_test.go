@@ -343,6 +343,67 @@ func BenchmarkParseJSON(b *testing.B) {
 	}
 }
 
+func TestStreamingJSON(t *testing.T) {
+	input := `{
+		"key1": "value1",
+		"key2": 123,
+		"key3": [true, false, null, {"nestedKey": "nestedValue"}],
+		"key4": {
+			"innerKey1": "innerValue1",
+			"innerKey2": {
+				"deepNestedKey": "deepNestedValue"
+			}
+		}
+	}`
+
+	reader := strings.NewReader(input)
+
+	lexer := jsongoparser.NewLexer(reader)
+	parser := jsongoparser.NewParser(lexer)
+
+	value, err := parser.ParseJSON()
+	if err != nil {
+		t.Fatalf("Error parsing JSON: %v", err)
+	}
+
+	obj, ok := value.(*jsongoparser.Object)
+	if !ok {
+		t.Fatalf("Expected Object, got %T", value)
+	}
+
+	expectedKeys := []string{"key1", "key2", "key3", "key4"}
+	if len(obj.Pairs) != len(expectedKeys) {
+		t.Fatalf("Expected %d keys, got %d", len(expectedKeys), len(obj.Pairs))
+	}
+
+	if obj.Pairs["key1"].(*jsongoparser.StringLiteral).Value != "value1" {
+		t.Fatalf("Expected key1 to be 'value1', got %s", obj.Pairs["key1"].(*jsongoparser.StringLiteral).Value)
+	}
+
+	if obj.Pairs["key2"].(*jsongoparser.NumberLiteral).String() != "123" {
+		t.Fatalf("Expected key2 to be 123, got %s", obj.Pairs["key2"].(*jsongoparser.NumberLiteral).String())
+	}
+
+	arrayValue, ok := obj.Pairs["key3"].(*jsongoparser.Array)
+	if !ok || len(arrayValue.Elements) != 4 {
+		t.Fatalf("Expected key3 to be an array of 4 elements, got %d", len(arrayValue.Elements))
+	}
+
+	innerObj, ok := obj.Pairs["key4"].(*jsongoparser.Object)
+	if !ok {
+		t.Fatalf("Expected key4 to be an object, got %T", obj.Pairs["key4"])
+	}
+
+	innerObjValue, ok := innerObj.Pairs["innerKey2"].(*jsongoparser.Object)
+	if !ok {
+		t.Fatalf("Expected key4.innerKey2 to be an object, got %T", innerObj.Pairs["innerKey2"])
+	}
+
+	if innerObjValue.Pairs["deepNestedKey"].(*jsongoparser.StringLiteral).Value != "deepNestedValue" {
+		t.Fatalf("Expected deepNestedKey to be 'deepNestedValue', got %s", innerObjValue.Pairs["deepNestedKey"].(*jsongoparser.StringLiteral).Value)
+	}
+}
+
 // isExpectedError checks if the error is one of the expected errors
 func isExpectedError(err error) bool {
 	expectedErrors := []string{
