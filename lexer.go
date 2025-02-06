@@ -1,5 +1,10 @@
 package jsongoparser
 
+import (
+	"bufio"
+	"io"
+)
+
 // Lexer is responsible for converting JSON input into a sequence of tokens.
 // It maintains the current input string and tracks the positions of characters being read.
 type Lexer struct {
@@ -15,18 +20,62 @@ type Lexer struct {
 	line int
 	// The current column number in the input (0-based index).
 	column int
+	// The buffered reader for the input string.
+	reader *bufio.Reader
+	// The buffer is used to store read characters when streaming.
+	buffer []byte
+	// Flag to indicate if the lexer is in streaming mode.
+	isStreaming bool
 }
 
 // NewLexer creates a new Lexer instance for the given input string.
-func NewLexer(input string) *Lexer {
+func NewLexer(input interface{}) *Lexer {
 	l := &Lexer{
-		input:  input,
 		line:   1,
 		column: 0,
+		buffer: make([]byte, 4096),
 	}
+
+	switch v := input.(type) {
+	case string:
+		l.input = v
+		l.isStreaming = false
+	case io.Reader:
+		l.reader = bufio.NewReader(v)
+		l.isStreaming = true
+		l.readChunk() // lê o primeiro chunk
+	}
+
 	l.readChar()
 
 	return l
+}
+
+// readChunk reads the next chunk of data from the input reader.
+func (l *Lexer) readChunk() {
+	if !l.isStreaming || l.reader == nil {
+		return
+	}
+
+	remaining := len(l.input) - l.position
+	if remaining > 0 {
+		copy(l.buffer, l.input[l.position:])
+		l.position += copy(l.buffer[remaining:], l.input[l.position:])
+		return
+	} else {
+		l.input = ""
+	}
+
+	n, err := l.reader.Read(l.buffer[remaining:])
+	if n > 0 {
+		l.input = l.input + string(l.buffer[remaining:remaining+n])
+	}
+	if err != nil && err != io.EOF {
+		return
+	}
+
+	l.position = 0
+	l.readPosition = 0
 }
 
 // NextToken retrieves the next token from the input, skipping any whitespace.
@@ -75,16 +124,19 @@ func (l *Lexer) NextToken() Token {
 // readChar advances the position in the input string and updates the current character.
 func (l *Lexer) readChar() {
 	if l.readPosition >= len(l.input) {
-		l.ch = 0 // ASCII null character to indicate EOF
-	} else {
-		l.ch = l.input[l.readPosition]
+		if l.isStreaming {
+			l.readChunk()
+		}
+		if l.readPosition >= len(l.input) {
+			l.ch = 0 // EOF
+			return
+		}
 	}
 
-	// Update position tracking
+	l.ch = l.input[l.readPosition]
 	l.position = l.readPosition
 	l.readPosition++
 
-	// Update line and column numbers
 	if l.ch == '\n' {
 		l.line++
 		l.column = 0
@@ -102,30 +154,29 @@ func (l *Lexer) skipWhitespace() {
 
 // readString reads a string token.
 func (l *Lexer) readString(line, column int) Token {
+	var result []byte
 	l.readChar()
-	position := l.position
 
 	for l.ch != '"' && l.ch != 0 {
-		// Handle escape sequences
 		if l.ch == '\\' {
 			l.readChar()
-
 			if l.ch == 0 {
 				return Token{Type: TokenIllegal, Literal: "Unterminated string", Line: line, Column: column}
 			}
+			result = append(result, '\\')
+			result = append(result, l.ch)
+		} else {
+			result = append(result, l.ch)
 		}
-
 		l.readChar()
 	}
-
 	if l.ch == 0 {
 		return Token{Type: TokenIllegal, Literal: "Unterminated string", Line: line, Column: column}
 	}
 
-	str := l.input[position:l.position]
-	l.readChar() // Skip the closing quote
+	l.readChar()
 
-	return Token{Type: TokenString, Literal: str, Line: line, Column: column}
+	return Token{Type: TokenString, Literal: string(result), Line: line, Column: column}
 }
 
 // readNumber reads and validates a JSON number token.
