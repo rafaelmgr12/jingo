@@ -101,27 +101,62 @@ func NewNumberLiteral(token Token) *NumberLiteral {
 		Value: token.Literal,
 	}
 
-	// Try parsing as int first
-	if i, err := strconv.ParseInt(token.Literal, 10, 64); err == nil {
+	isInt := true // Assume it's an integer initially
+
+	for i := 0; i < len(token.Literal); i++ {
+		switch token.Literal[i] {
+		case '-', '+':
+			if i != 0 {
+				// Signs should only be at the beginning
+				return setInvalidNumberLiteral(n)
+			}
+		case '.':
+			isInt = false
+		case 'e', 'E':
+			isInt = false
+			// Ensure there's an exponent part
+			if i+1 >= len(token.Literal) {
+				return setInvalidNumberLiteral(n)
+			}
+
+			if token.Literal[i+1] == '-' || token.Literal[i+1] == '+' {
+				i++ // Skip the sign in exponent
+			}
+		default:
+			if token.Literal[i] < '0' || token.Literal[i] > '9' {
+				return setInvalidNumberLiteral(n)
+			}
+		}
+	}
+
+	if isInt {
+		i, err := strconv.ParseInt(token.Literal, 10, 64)
+		if err != nil {
+			return setInvalidNumberLiteral(n)
+		}
+
 		n.Int = i
 		n.Float = float64(i)
-		n.IsInt = true
-		n.IsValid = true
+	} else {
+		f, err := strconv.ParseFloat(token.Literal, 64)
+		if err != nil {
+			return setInvalidNumberLiteral(n)
+		}
 
-		return n
-	}
-
-	// Try parsing as float
-	if f, err := strconv.ParseFloat(token.Literal, 64); err == nil {
 		n.Float = f
-		n.IsInt = false
-		n.IsValid = true
-
-		return n
 	}
 
-	// If we get here, the number is not valid
+	n.IsValid = true
+	n.IsInt = isInt
+
+	return n
+}
+
+func setInvalidNumberLiteral(n *NumberLiteral) *NumberLiteral {
 	n.IsValid = false
+	n.IsInt = false
+	n.Int = 0
+	n.Float = 0
 
 	return n
 }
