@@ -61,15 +61,17 @@ func (l *Lexer) readChunk() {
 	if remaining > 0 {
 		copy(l.buffer, l.input[l.position:])
 		l.position += copy(l.buffer[remaining:], l.input[l.position:])
+
 		return
-	} else {
-		l.input = ""
 	}
+
+	l.input = ""
 
 	n, err := l.reader.Read(l.buffer[remaining:])
 	if n > 0 {
-		l.input = l.input + string(l.buffer[remaining:remaining+n])
+		l.input += string(l.buffer[remaining : remaining+n])
 	}
+
 	if err != nil && err != io.EOF {
 		return
 	}
@@ -127,6 +129,7 @@ func (l *Lexer) readChar() {
 		if l.isStreaming {
 			l.readChunk()
 		}
+
 		if l.readPosition >= len(l.input) {
 			l.ch = 0 // EOF
 			return
@@ -155,21 +158,26 @@ func (l *Lexer) skipWhitespace() {
 // readString reads a string token.
 func (l *Lexer) readString(line, column int) Token {
 	var result []byte
+
 	l.readChar()
 
 	for l.ch != '"' && l.ch != 0 {
 		if l.ch == '\\' {
 			l.readChar()
+
 			if l.ch == 0 {
 				return Token{Type: TokenIllegal, Literal: "Unterminated string", Line: line, Column: column}
 			}
+
 			result = append(result, '\\')
 			result = append(result, l.ch)
 		} else {
 			result = append(result, l.ch)
 		}
+
 		l.readChar()
 	}
+
 	if l.ch == 0 {
 		return Token{Type: TokenIllegal, Literal: "Unterminated string", Line: line, Column: column}
 	}
