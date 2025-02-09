@@ -447,6 +447,71 @@ func TestUtf8Parsing(t *testing.T) {
 	}
 }
 
+func TestLexerWithByteInput(t *testing.T) {
+	tests := []struct {
+		input    []byte
+		expected []parser.TokenType
+	}{
+		{
+			input: []byte(`{"key": "value"}`),
+			expected: []parser.TokenType{
+				parser.TokenBraceOpen,
+				parser.TokenString,
+				parser.TokenColon,
+				parser.TokenString,
+				parser.TokenBraceClose,
+				parser.TokenEOF,
+			},
+		},
+		{
+			input: []byte(`[true, false, null, "string", 123]`),
+			expected: []parser.TokenType{
+				parser.TokenBracketOpen,
+				parser.TokenTrue,
+				parser.TokenComma,
+				parser.TokenFalse,
+				parser.TokenComma,
+				parser.TokenNull,
+				parser.TokenComma,
+				parser.TokenString,
+				parser.TokenComma,
+				parser.TokenNumber,
+				parser.TokenBracketClose,
+				parser.TokenEOF,
+			},
+		},
+		{
+			input: []byte(`{"key1": 100, "key2": 1.23, "key3": 2e10}`),
+			expected: []parser.TokenType{
+				parser.TokenBraceOpen,
+				parser.TokenString,
+				parser.TokenColon,
+				parser.TokenNumber,
+				parser.TokenComma,
+				parser.TokenString,
+				parser.TokenColon,
+				parser.TokenNumber,
+				parser.TokenComma,
+				parser.TokenString,
+				parser.TokenColon,
+				parser.TokenNumber,
+				parser.TokenBraceClose,
+				parser.TokenEOF,
+			},
+		},
+	}
+
+	for i, tt := range tests {
+		l := parser.NewLexer(tt.input)
+		for _, expectedType := range tt.expected {
+			token := l.NextToken()
+			if token.Type != expectedType {
+				t.Fatalf("Test %d: expected token type %q, got %q", i, expectedType, token.Type)
+			}
+		}
+	}
+}
+
 // isExpectedError checks if the error is one of the expected errors
 func isExpectedError(err error) bool {
 	expectedErrors := []string{

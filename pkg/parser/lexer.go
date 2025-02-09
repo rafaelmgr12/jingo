@@ -41,10 +41,15 @@ func NewLexer(input interface{}) *Lexer {
 	case string:
 		l.input = v
 		l.isStreaming = false
+	case []byte:
+		l.input = string(v)
+		l.isStreaming = false
 	case io.Reader:
 		l.reader = bufio.NewReader(v)
 		l.isStreaming = true
 		l.readChunk()
+	default:
+		panic("invalid input type")
 	}
 
 	l.readChar()
