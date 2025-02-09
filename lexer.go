@@ -3,6 +3,7 @@ package jsongoparser
 import (
 	"bufio"
 	"io"
+	"unicode/utf8"
 )
 
 // Lexer is responsible for converting JSON input into a sequence of tokens.
@@ -15,7 +16,7 @@ type Lexer struct {
 	// The position in the input after the current character.
 	readPosition int
 	// The current character being examined.
-	ch byte
+	ch rune
 	// The current line number in the input (1-based index).
 	line int
 	// The current column number in the input (0-based index).
@@ -136,9 +137,15 @@ func (l *Lexer) readChar() {
 		}
 	}
 
-	l.ch = l.input[l.readPosition]
+	var size int
+
+	l.ch, size = utf8.DecodeRuneInString(l.input[l.readPosition:])
 	l.position = l.readPosition
-	l.readPosition++
+	l.readPosition += size
+
+	if l.ch == utf8.RuneError && size == 0 {
+		l.ch = 0 //EOF
+	}
 
 	if l.ch == '\n' {
 		l.line++
@@ -157,7 +164,7 @@ func (l *Lexer) skipWhitespace() {
 
 // readString reads a string token.
 func (l *Lexer) readString(line, column int) Token {
-	var result []byte
+	var result []rune
 
 	l.readChar()
 
@@ -314,26 +321,26 @@ func (l *Lexer) readNull(line, column int) Token {
 
 // readWord reads a word token (used for true, false, null).
 func (l *Lexer) readWord() string {
-	position := l.position
+	start := l.position
 
 	for isLetter(l.ch) {
 		l.readChar()
 	}
 
-	return l.input[position:l.position]
+	return l.input[start:l.position]
 }
 
 // isLetter checks if a character is a letter.
-func isLetter(ch byte) bool {
+func isLetter(ch rune) bool {
 	return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z')
 }
 
 // isDigit checks if a character is a digit.
-func isDigit(ch byte) bool {
+func isDigit(ch rune) bool {
 	return '0' <= ch && ch <= '9'
 }
 
 // isNonZeroDigit checks if a character is a non-zero digit.
-func isNonZeroDigit(ch byte) bool {
+func isNonZeroDigit(ch rune) bool {
 	return '1' <= ch && ch <= '9'
 }

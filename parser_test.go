@@ -404,6 +404,49 @@ func TestStreamingJSON(t *testing.T) {
 	}
 }
 
+func TestUtf8Parsing(t *testing.T) {
+	tests := []struct {
+		input    string
+		key      string
+		expected string
+	}{
+		{
+			input:    `{"key": "こんにちは"}`,
+			key:      "key",
+			expected: "こんにちは",
+		},
+		{
+			input:    `{"emoji": "🚀"}`,
+			key:      "emoji",
+			expected: "🚀",
+		},
+	}
+
+	for i, tt := range tests {
+		l := jsongoparser.NewLexer(tt.input)
+		p := jsongoparser.NewParser(l)
+
+		value, err := p.ParseJSON()
+		if err != nil {
+			t.Fatalf("Test %d: error parsing JSON: %v", i, err)
+		}
+
+		obj, ok := value.(*jsongoparser.Object)
+		if !ok {
+			t.Fatalf("Test %d: expected *Object, got %T", i, value)
+		}
+
+		val, exists := obj.Pairs[tt.key]
+		if !exists {
+			t.Fatalf("Test %d: key '%s' does not exist in the parsed object", i, tt.key)
+		}
+
+		if val.String() != tt.expected {
+			t.Fatalf("Test %d: expected value %s, got %s", i, tt.expected, val.String())
+		}
+	}
+}
+
 // isExpectedError checks if the error is one of the expected errors
 func isExpectedError(err error) bool {
 	expectedErrors := []string{
