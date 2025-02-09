@@ -1,4 +1,4 @@
-package jsongoparser_test
+package parser_test
 
 import (
 	"fmt"
@@ -6,31 +6,31 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rafaelmgr12/jsongoparser"
+	"github.com/rafaelmgr12/jingo/pkg/parser"
 )
 
 func TestParser(t *testing.T) {
 	tests := []struct {
 		input        string
-		expectedType jsongoparser.Value
+		expectedType parser.Value
 	}{
 		{
 			input:        `{"key": "value"}`,
-			expectedType: &jsongoparser.Object{},
+			expectedType: &parser.Object{},
 		},
 		{
 			input:        `{ "key1": true, "key2": false, "key3": null, "key4": "value", "key5": 101}`,
-			expectedType: &jsongoparser.Object{},
+			expectedType: &parser.Object{},
 		},
 		{
 			input:        `{ "key": "value", "key-n": 101, "key-o": {}, "key-l": []}`,
-			expectedType: &jsongoparser.Object{},
+			expectedType: &parser.Object{},
 		},
 	}
 
 	for i, tt := range tests {
-		l := jsongoparser.NewLexer(tt.input)
-		p := jsongoparser.NewParser(l)
+		l := parser.NewLexer(tt.input)
+		p := parser.NewParser(l)
 
 		value, err := p.ParseJSON()
 		if err != nil {
@@ -41,7 +41,7 @@ func TestParser(t *testing.T) {
 			t.Fatalf("Test %d: parsed value is nil", i)
 		}
 
-		if _, ok := value.(*jsongoparser.Object); !ok {
+		if _, ok := value.(*parser.Object); !ok {
 			t.Fatalf("Test %d: expected value type %T, got %T", i, tt.expectedType, value)
 		}
 	}
@@ -50,59 +50,59 @@ func TestParser(t *testing.T) {
 func TestLexerTokenization(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected []jsongoparser.TokenType
+		expected []parser.TokenType
 	}{
 		{
 			input: `{"key": "value"}`,
-			expected: []jsongoparser.TokenType{
-				jsongoparser.TokenBraceOpen,
-				jsongoparser.TokenString,
-				jsongoparser.TokenColon,
-				jsongoparser.TokenString,
-				jsongoparser.TokenBraceClose,
-				jsongoparser.TokenEOF,
+			expected: []parser.TokenType{
+				parser.TokenBraceOpen,
+				parser.TokenString,
+				parser.TokenColon,
+				parser.TokenString,
+				parser.TokenBraceClose,
+				parser.TokenEOF,
 			},
 		},
 		{
 			input: `[true, false, null, "string", 123]`,
-			expected: []jsongoparser.TokenType{
-				jsongoparser.TokenBracketOpen,
-				jsongoparser.TokenTrue,
-				jsongoparser.TokenComma,
-				jsongoparser.TokenFalse,
-				jsongoparser.TokenComma,
-				jsongoparser.TokenNull,
-				jsongoparser.TokenComma,
-				jsongoparser.TokenString,
-				jsongoparser.TokenComma,
-				jsongoparser.TokenNumber,
-				jsongoparser.TokenBracketClose,
-				jsongoparser.TokenEOF,
+			expected: []parser.TokenType{
+				parser.TokenBracketOpen,
+				parser.TokenTrue,
+				parser.TokenComma,
+				parser.TokenFalse,
+				parser.TokenComma,
+				parser.TokenNull,
+				parser.TokenComma,
+				parser.TokenString,
+				parser.TokenComma,
+				parser.TokenNumber,
+				parser.TokenBracketClose,
+				parser.TokenEOF,
 			},
 		},
 		{
 			input: `{"key1": 100, "key2": 1.23, "key3": 2e10}`,
-			expected: []jsongoparser.TokenType{
-				jsongoparser.TokenBraceOpen,
-				jsongoparser.TokenString,
-				jsongoparser.TokenColon,
-				jsongoparser.TokenNumber,
-				jsongoparser.TokenComma,
-				jsongoparser.TokenString,
-				jsongoparser.TokenColon,
-				jsongoparser.TokenNumber,
-				jsongoparser.TokenComma,
-				jsongoparser.TokenString,
-				jsongoparser.TokenColon,
-				jsongoparser.TokenNumber,
-				jsongoparser.TokenBraceClose,
-				jsongoparser.TokenEOF,
+			expected: []parser.TokenType{
+				parser.TokenBraceOpen,
+				parser.TokenString,
+				parser.TokenColon,
+				parser.TokenNumber,
+				parser.TokenComma,
+				parser.TokenString,
+				parser.TokenColon,
+				parser.TokenNumber,
+				parser.TokenComma,
+				parser.TokenString,
+				parser.TokenColon,
+				parser.TokenNumber,
+				parser.TokenBraceClose,
+				parser.TokenEOF,
 			},
 		},
 	}
 
 	for i, tt := range tests {
-		l := jsongoparser.NewLexer(tt.input)
+		l := parser.NewLexer(tt.input)
 		for _, expectedType := range tt.expected {
 			token := l.NextToken()
 			if token.Type != expectedType {
@@ -136,8 +136,8 @@ func TestParserErrors(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		l := jsongoparser.NewLexer(tt.input)
-		p := jsongoparser.NewParser(l)
+		l := parser.NewLexer(tt.input)
+		p := parser.NewParser(l)
 		_, err := p.ParseJSON()
 		errors := p.Errors()
 
@@ -164,15 +164,15 @@ func TestComplexJSON(t *testing.T) {
         "key4": true
     }`
 
-	l := jsongoparser.NewLexer(input)
-	p := jsongoparser.NewParser(l)
+	l := parser.NewLexer(input)
+	p := parser.NewParser(l)
 
 	value, err := p.ParseJSON()
 	if err != nil {
 		t.Fatalf("Error parsing JSON: %v", err)
 	}
 
-	if obj, ok := value.(*jsongoparser.Object); !ok || len(obj.Pairs) != 4 {
+	if obj, ok := value.(*parser.Object); !ok || len(obj.Pairs) != 4 {
 		t.Fatalf("Parsing resulted in wrong object structure: %+v", value)
 	}
 }
@@ -244,8 +244,8 @@ func TestNumberParsing(t *testing.T) {
 
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("Case %d: %s", i, tt.input), func(t *testing.T) {
-			l := jsongoparser.NewLexer(tt.input)
-			p := jsongoparser.NewParser(l)
+			l := parser.NewLexer(tt.input)
+			p := parser.NewParser(l)
 			value, err := p.ParseJSON()
 
 			if tt.shouldFail {
@@ -260,12 +260,12 @@ func TestNumberParsing(t *testing.T) {
 				t.Fatalf("Unexpected error: %v", err)
 			}
 
-			obj, ok := value.(*jsongoparser.Object)
+			obj, ok := value.(*parser.Object)
 			if !ok {
 				t.Fatalf("Expected Object, got %T", value)
 			}
 
-			num, ok := obj.Pairs["num"].(*jsongoparser.NumberLiteral)
+			num, ok := obj.Pairs["num"].(*parser.NumberLiteral)
 			if !ok {
 				t.Fatalf("Expected NumberLiteral, got %T", obj.Pairs["num"])
 			}
@@ -304,8 +304,8 @@ func FuzzParseJSON(f *testing.F) {
 	f.Add(`{"deeplyNested": {"level1": {"level2": {"level3": {"level4": "value"}}}}}`)
 
 	f.Fuzz(func(t *testing.T, input string) {
-		lexer := jsongoparser.NewLexer(input)
-		parser := jsongoparser.NewParser(lexer)
+		lexer := parser.NewLexer(input)
+		parser := parser.NewParser(lexer)
 		parsed, err := parser.ParseJSON()
 
 		if err != nil {
@@ -333,8 +333,8 @@ func BenchmarkParseJSON(b *testing.B) {
     }`
 
 	for i := 0; i < b.N; i++ {
-		lexer := jsongoparser.NewLexer(input)
-		parser := jsongoparser.NewParser(lexer)
+		lexer := parser.NewLexer(input)
+		parser := parser.NewParser(lexer)
 
 		_, err := parser.ParseJSON()
 		if err != nil {
@@ -358,15 +358,15 @@ func TestStreamingJSON(t *testing.T) {
 
 	reader := strings.NewReader(input)
 
-	lexer := jsongoparser.NewLexer(reader)
-	parser := jsongoparser.NewParser(lexer)
+	lexer := parser.NewLexer(reader)
+	p := parser.NewParser(lexer)
 
-	value, err := parser.ParseJSON()
+	value, err := p.ParseJSON()
 	if err != nil {
 		t.Fatalf("Error parsing JSON: %v", err)
 	}
 
-	obj, ok := value.(*jsongoparser.Object)
+	obj, ok := value.(*parser.Object)
 	if !ok {
 		t.Fatalf("Expected Object, got %T", value)
 	}
@@ -376,31 +376,31 @@ func TestStreamingJSON(t *testing.T) {
 		t.Fatalf("Expected %d keys, got %d", len(expectedKeys), len(obj.Pairs))
 	}
 
-	if obj.Pairs["key1"].(*jsongoparser.StringLiteral).Value != "value1" {
-		t.Fatalf("Expected key1 to be 'value1', got %s", obj.Pairs["key1"].(*jsongoparser.StringLiteral).Value)
+	if obj.Pairs["key1"].(*parser.StringLiteral).Value != "value1" {
+		t.Fatalf("Expected key1 to be 'value1', got %s", obj.Pairs["key1"].(*parser.StringLiteral).Value)
 	}
 
-	if obj.Pairs["key2"].(*jsongoparser.NumberLiteral).String() != "123" {
-		t.Fatalf("Expected key2 to be 123, got %s", obj.Pairs["key2"].(*jsongoparser.NumberLiteral).String())
+	if obj.Pairs["key2"].(*parser.NumberLiteral).String() != "123" {
+		t.Fatalf("Expected key2 to be 123, got %s", obj.Pairs["key2"].(*parser.NumberLiteral).String())
 	}
 
-	arrayValue, ok := obj.Pairs["key3"].(*jsongoparser.Array)
+	arrayValue, ok := obj.Pairs["key3"].(*parser.Array)
 	if !ok || len(arrayValue.Elements) != 4 {
 		t.Fatalf("Expected key3 to be an array of 4 elements, got %d", len(arrayValue.Elements))
 	}
 
-	innerObj, ok := obj.Pairs["key4"].(*jsongoparser.Object)
+	innerObj, ok := obj.Pairs["key4"].(*parser.Object)
 	if !ok {
 		t.Fatalf("Expected key4 to be an object, got %T", obj.Pairs["key4"])
 	}
 
-	innerObjValue, ok := innerObj.Pairs["innerKey2"].(*jsongoparser.Object)
+	innerObjValue, ok := innerObj.Pairs["innerKey2"].(*parser.Object)
 	if !ok {
 		t.Fatalf("Expected key4.innerKey2 to be an object, got %T", innerObj.Pairs["innerKey2"])
 	}
 
-	if innerObjValue.Pairs["deepNestedKey"].(*jsongoparser.StringLiteral).Value != "deepNestedValue" {
-		t.Fatalf("Expected deepNestedKey to be 'deepNestedValue', got %s", innerObjValue.Pairs["deepNestedKey"].(*jsongoparser.StringLiteral).Value)
+	if innerObjValue.Pairs["deepNestedKey"].(*parser.StringLiteral).Value != "deepNestedValue" {
+		t.Fatalf("Expected deepNestedKey to be 'deepNestedValue', got %s", innerObjValue.Pairs["deepNestedKey"].(*parser.StringLiteral).Value)
 	}
 }
 
@@ -423,15 +423,15 @@ func TestUtf8Parsing(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		l := jsongoparser.NewLexer(tt.input)
-		p := jsongoparser.NewParser(l)
+		l := parser.NewLexer(tt.input)
+		p := parser.NewParser(l)
 
 		value, err := p.ParseJSON()
 		if err != nil {
 			t.Fatalf("Test %d: error parsing JSON: %v", i, err)
 		}
 
-		obj, ok := value.(*jsongoparser.Object)
+		obj, ok := value.(*parser.Object)
 		if !ok {
 			t.Fatalf("Test %d: expected *Object, got %T", i, value)
 		}
@@ -467,7 +467,7 @@ func isExpectedError(err error) bool {
 // isValidParsedOutput validates the parsed output for known valid inputs
 func isValidParsedOutput(parsed interface{}) bool {
 	switch parsed.(type) {
-	case *jsongoparser.Object, *jsongoparser.Array:
+	case *parser.Object, *parser.Array:
 		return true
 	}
 

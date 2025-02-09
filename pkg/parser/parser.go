@@ -1,5 +1,5 @@
 // parser.go
-package jsongoparser
+package parser
 
 import (
 	"fmt"

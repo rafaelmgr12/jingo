@@ -1,4 +1,4 @@
-package jsongoparser
+package parser
 
 // Node represents a node in our AST (Abstract Syntax Tree)
 // Every node in our JSON structure will implement this interface

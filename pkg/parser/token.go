@@ -1,4 +1,4 @@
-package jsongoparser
+package parser
 
 // TokenType is a custom type that represents the type of a token in a JSON document. It is defined as
 // a string type with a set of predefined values. Each value represents a different type of token that

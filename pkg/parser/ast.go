@@ -1,4 +1,4 @@
-package jsongoparser
+package parser
 
 import (
 	"fmt"
