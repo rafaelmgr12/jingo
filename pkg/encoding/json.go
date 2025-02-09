@@ -68,6 +68,7 @@ func marshalValue(v reflect.Value) (parser.Value, error) {
 			Type:    parser.TokenNumber,
 			Literal: fmt.Sprintf("%d", v.Int()),
 		})
+
 		return num, nil
 
 	case reflect.Float32, reflect.Float64:
@@ -75,6 +76,7 @@ func marshalValue(v reflect.Value) (parser.Value, error) {
 			Type:    parser.TokenNumber,
 			Literal: fmt.Sprintf("%g", v.Float()),
 		})
+
 		return num, nil
 
 	case reflect.Map:
@@ -93,8 +95,10 @@ func marshalValue(v reflect.Value) (parser.Value, error) {
 			if err != nil {
 				return nil, fmt.Errorf("map value: %v", err)
 			}
+
 			obj.Pairs[iter.Key().String()] = value
 		}
+
 		return obj, nil
 
 	case reflect.Slice, reflect.Array:
@@ -108,14 +112,17 @@ func marshalValue(v reflect.Value) (parser.Value, error) {
 			if err != nil {
 				return nil, fmt.Errorf("index %d: %v", i, err)
 			}
+
 			arr.Elements = append(arr.Elements, value)
 		}
+
 		return arr, nil
 
 	case reflect.Ptr:
 		if v.IsNil() {
 			return &parser.Null{Token: parser.Token{Type: parser.TokenNull}}, nil
 		}
+
 		return marshalValue(v.Elem())
 
 	case reflect.Struct:
@@ -127,12 +134,14 @@ func marshalValue(v reflect.Value) (parser.Value, error) {
 		t := v.Type()
 		for i := 0; i < v.NumField(); i++ {
 			field := t.Field(i)
+
 			tag := field.Tag.Get("json")
 			if tag == "-" {
 				continue
 			}
 
 			name := field.Name
+
 			if tag != "" {
 				tagParts := strings.Split(tag, ",")
 				if len(tagParts) > 0 && tagParts[0] != "" {
@@ -144,14 +153,17 @@ func marshalValue(v reflect.Value) (parser.Value, error) {
 			if err != nil {
 				return nil, fmt.Errorf("field %s: %v", name, err)
 			}
+
 			obj.Pairs[name] = value
 		}
+
 		return obj, nil
 
 	case reflect.Interface:
 		if v.IsNil() {
 			return &parser.Null{Token: parser.Token{Type: parser.TokenNull}}, nil
 		}
+
 		return marshalValue(v.Elem())
 
 	default:
@@ -169,24 +181,30 @@ func unmarshalValue(v parser.Value, rv reflect.Value) error {
 		switch val := v.(type) {
 		case *parser.Object:
 			obj := map[string]interface{}{}
+
 			for k, v := range val.Pairs {
 				var mapValue interface{}
 				if err := unmarshalValue(v, reflect.ValueOf(&mapValue).Elem()); err != nil {
 					return fmt.Errorf("map key %q: %v", k, err)
 				}
+
 				obj[k] = mapValue
 			}
+
 			rv.Set(reflect.ValueOf(obj))
 
 		case *parser.Array:
 			arr := make([]interface{}, len(val.Elements))
+
 			for i, elem := range val.Elements {
 				var arrayValue interface{}
 				if err := unmarshalValue(elem, reflect.ValueOf(&arrayValue).Elem()); err != nil {
 					return fmt.Errorf("index %d: %v", i, err)
 				}
+
 				arr[i] = arrayValue
 			}
+
 			rv.Set(reflect.ValueOf(arr))
 
 		case *parser.StringLiteral:
@@ -208,6 +226,7 @@ func unmarshalValue(v parser.Value, rv reflect.Value) error {
 		default:
 			return fmt.Errorf("unknown value type: %T", v)
 		}
+
 		return nil
 	}
 
@@ -256,8 +275,10 @@ func unmarshalObject(obj *parser.Object, rv reflect.Value) error {
 
 	case reflect.Struct:
 		t := rv.Type()
+
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
+
 			tag := field.Tag.Get("json")
 			if tag == "-" {
 				continue
@@ -292,6 +313,7 @@ func unmarshalArray(arr *parser.Array, rv reflect.Value) error {
 				return fmt.Errorf("index %d: %v", i, err)
 			}
 		}
+
 		rv.Set(slice)
 
 	case reflect.Array:
@@ -299,6 +321,7 @@ func unmarshalArray(arr *parser.Array, rv reflect.Value) error {
 			return fmt.Errorf("cannot unmarshal array of length %d into array of length %d",
 				len(arr.Elements), rv.Len())
 		}
+
 		for i, elem := range arr.Elements {
 			if err := unmarshalValue(elem, rv.Index(i)); err != nil {
 				return fmt.Errorf("index %d: %v", i, err)
@@ -317,24 +340,27 @@ func unmarshalString(str *parser.StringLiteral, rv reflect.Value) error {
 	if rv.Kind() != reflect.String {
 		return fmt.Errorf("cannot unmarshal string into %v", rv.Type())
 	}
+
 	rv.SetString(str.Value)
+
 	return nil
 }
 
 // unmarshalNumber handles unmarshaling of JSON numbers into Go numeric types
 func unmarshalNumber(num *parser.NumberLiteral, rv reflect.Value) error {
-
 	switch rv.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		if !num.IsInt {
 			return fmt.Errorf("cannot unmarshal float into %v", rv.Type())
 		}
+
 		rv.SetInt(num.Int)
 
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		if !num.IsInt || num.Int < 0 {
 			return fmt.Errorf("cannot unmarshal negative number into %v", rv.Type())
 		}
+
 		rv.SetUint(uint64(num.Int))
 
 	case reflect.Float32, reflect.Float64:
@@ -352,7 +378,9 @@ func unmarshalBool(b *parser.Boolean, rv reflect.Value) error {
 	if rv.Kind() != reflect.Bool {
 		return fmt.Errorf("cannot unmarshal boolean into %v", rv.Type())
 	}
+
 	rv.SetBool(b.Value)
+
 	return nil
 }
 
@@ -372,29 +400,37 @@ func writeValue(b *strings.Builder, v parser.Value) error {
 	switch val := v.(type) {
 	case *parser.Object:
 		b.WriteString("{")
+
 		i := 0
 		for k, v := range val.Pairs {
 			if i > 0 {
 				b.WriteString(",")
 			}
+
 			fmt.Fprintf(b, "%q:", k)
+
 			if err := writeValue(b, v); err != nil {
 				return err
 			}
+
 			i++
 		}
+
 		b.WriteString("}")
 
 	case *parser.Array:
 		b.WriteString("[")
+
 		for i, v := range val.Elements {
 			if i > 0 {
 				b.WriteString(",")
 			}
+
 			if err := writeValue(b, v); err != nil {
 				return err
 			}
 		}
+
 		b.WriteString("]")
 
 	case *parser.StringLiteral:

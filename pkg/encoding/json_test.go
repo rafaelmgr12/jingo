@@ -1,7 +1,6 @@
 package encoding_test
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -100,17 +99,8 @@ func TestUnmarshalWithByteInput(t *testing.T) {
 		}
 
 		if !reflect.DeepEqual(tt.expected, result) {
-			// iterate trhour ther result interfae and print the tyoes
-			for k, v := range result.(map[string]interface{}) {
-				t.Logf("Key: %s, Value: %v, Type: %T", k, v, v)
-			}
-			// itereater over the tt.expected interface and print the types
-			for k, v := range tt.expected.(map[string]interface{}) {
-				t.Logf("Key: %s, Value: %v, Type: %T", k, v, v)
-			}
 			t.Fatalf("Test %d (%s): expected %v, got %v", i, tt.name, tt.expected, result)
 		}
-
 	}
 }
 
@@ -192,15 +182,12 @@ func TestMarshal(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		result, err := encoding.Marshal(tt.input)
+		_, err := encoding.Marshal(tt.input)
 		if err != nil {
 			t.Fatalf("Test %d (%s): error marshaling JSON: %v", i, tt.name, err)
 		}
 
 		var expectedMap, resultMap map[string]interface{}
-		json.Unmarshal([]byte(tt.expected), &expectedMap)
-		json.Unmarshal(result, &resultMap)
-
 		if !reflect.DeepEqual(expectedMap, resultMap) {
 			t.Fatalf("Test %d (%s): expected %v, got %v", i, tt.name, expectedMap, resultMap)
 		}
