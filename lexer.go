@@ -144,7 +144,7 @@ func (l *Lexer) readChar() {
 	l.readPosition += size
 
 	if l.ch == utf8.RuneError && size == 0 {
-		l.ch = 0 //EOF
+		l.ch = 0 // EOF
 	}
 
 	if l.ch == '\n' {
