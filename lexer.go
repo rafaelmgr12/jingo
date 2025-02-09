@@ -43,7 +43,7 @@ func NewLexer(input interface{}) *Lexer {
 	case io.Reader:
 		l.reader = bufio.NewReader(v)
 		l.isStreaming = true
-		l.readChunk() // lê o primeiro chunk
+		l.readChunk()
 	}
 
 	l.readChar()
@@ -333,6 +333,7 @@ func isDigit(ch byte) bool {
 	return '0' <= ch && ch <= '9'
 }
 
+// isNonZeroDigit checks if a character is a non-zero digit.
 func isNonZeroDigit(ch byte) bool {
 	return '1' <= ch && ch <= '9'
 }
