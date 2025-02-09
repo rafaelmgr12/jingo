@@ -64,4 +64,4 @@ We follow these steps for security updates:
 ## Contact
 
 For any security-related questions, please contact:
-[your-email@example.com](mailto:your-email@example.com)
+[your-email@example.com](mailto:your-email@example.com).
