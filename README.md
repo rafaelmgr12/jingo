@@ -1,4 +1,4 @@
-# JSON Parser in Go
+# Jingo
 
 A recursive descent JSON parser implemented in Go that supports parsing JSON objects and arrays with various data types. This parser follows the JSON specification and provides detailed error reporting with line and column information.
 
@@ -20,13 +20,19 @@ A recursive descent JSON parser implemented in Go that supports parsing JSON obj
 ## Project Structure
 
 ```bash
-jsongoparser/
-├── token.go       // Token types and definitions
-├── lexer.go       // Lexical analyzer
-├── interface.go   // AST interfaces
-├── ast.go         // AST node implementations
-├── parser.go      // JSON parser
-└── parser_test.go // Parser tests
+jingo/
+├── pkg/
+│   ├── parser/           # Core parsing components
+│   │   ├── ast.go        # Abstract Syntax Tree implementation
+│   │   ├── lexer.go      # Lexical analyzer
+│   │   ├── parser.go     # JSON parser
+│   │   ├── token.go      # Token definitions
+│   │   └── interface.go  # Parser interfaces
+│   └── encoding/         # Encoding/decoding layer
+│       ├── json.go       # Main Marshal/Unmarshal implementation
+│       └── stream.go     # Streaming encoder/decoder
+├── examples/             # Usage examples
+├── docs/                 # Documentation
 ```
 
 ## Components
@@ -67,34 +73,117 @@ Represents the structure of the JSON data:
 
 ## Usage
 
+### Parsing JSON
+
 ```go
 package main
 
 import (
     "fmt"
     "log"
-    "github.com/rafaelmgr12/jsongoparser"
+    "github.com/rafaelmgr12/jingo/pkg/parser"
 )
 
 func main() {
     // Create a new lexer with JSON input
     input := `{"name": "John", "age": 30}`
-    lexer := jsongoparser.NewLexer(input)
+    lexer := parser.NewLexer(input)
 
     // Create a parser with the lexer
-    parser := jsongoparser.NewParser(lexer)
+    p := parser.NewParser(lexer)
 
     // Parse the JSON and handle any errors
-    value, err := parser.ParseJSON()
+    value, err := p.ParseJSON()
     if err != nil {
         log.Fatalf("Error parsing JSON: %v", err)
     }
 
     // Type assert to access the parsed data
-    if obj, ok := value.(*jsongoparser.Object); ok {
+    if obj, ok := value.(*parser.Object); ok {
         // Access object properties
         fmt.Println(obj.Pairs)
     }
+}
+```
+
+### Serializing JSON
+
+After parsing JSON, you might want to serialize it back to a string format.
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "github.com/rafaelmgr12/jingo/pkg/parser"
+)
+
+func main() {
+    // JSON input
+    input := `{"name": "John", "age": 30, "address": {"street": "123 Main St", "city": "New York"}}`
+
+    // Parse JSON
+    lexer := parser.NewLexer(input)
+    p := parser.NewParser(lexer)
+    value, err := p.ParseJSON()
+    if err != nil {
+        log.Fatalf("Error parsing JSON: %v", err)
+    }
+
+    // Serialize JSON
+    if obj, ok := value.(*parser.Object); ok {
+        jsonStr, err := obj.ToJSON()
+        if err != nil {
+            log.Fatalf("Error serializing JSON: %v", err)
+        }
+        fmt.Println("Serialized JSON:", jsonStr)
+    }
+}
+```
+
+### Sending JSON over HTTP
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "github.com/rafaelmgr12/jingo/pkg/parser"
+)
+
+func main() {
+    // JSON input
+    input := `{"name": "John Doe", "age": 30}`
+
+    // Parse JSON
+    lexer := parser.NewLexer(input)
+    p := parser.NewParser(lexer)
+    value, err := p.ParseJSON()
+    if err != nil {
+        log.Fatalf("Error parsing JSON: %v", err)
+    }
+
+    // Serialize JSON
+    jsonStr, err := value.(*parser.Object).ToJSON()
+    if err != nil {
+        log.Fatalf("Error serializing JSON: %v", err)
+    }
+    
+    fmt.Println("Serialized JSON:", jsonStr)
+
+    // Send JSON via HTTP
+    headers := map[string]string{
+        "Authorization": "Bearer example-token",
+    }
+    resp, err := parser.SendJSON("http://example.com/api", jsonStr, headers)
+    if err != nil {
+        log.Fatalf("Error sending JSON: %v", err)
+    }
+    defer resp.Body.Close()
+
+    fmt.Println("Response status:", resp.Status)
 }
 ```
 
@@ -107,15 +196,15 @@ package main
 
 import (
     "fmt"
-    "github.com/rafaelmgr12/jsongoparser"
+    "github.com/rafaelmgr12/jingo/pkg/parser"
 )
 
 func main() {
     input := `{"name": "John", age: 30}`  // Missing quotes around 'age'
-    lexer := jsongoparser.NewLexer(input)
-    parser := jsongoparser.NewParser(lexer)
+    lexer := parser.NewLexer(input)
+    p := parser.NewParser(lexer)
 
-    value, err := parser.ParseJSON()
+    value, err := p.ParseJSON()
     if err != nil {
         fmt.Println(err)
         // Output: Line 1, Column 14: expected string key, got age
@@ -133,11 +222,28 @@ go test ./...
 
 ## Known Issues and Limitations
 
-- **Number Handling**: Currently, number values are stored as strings and need to be parsed when used. You may encounter issues when performing numerical operations directly on these values.
-- **Error Recovery**: The parser could benefit from improved error recovery mechanisms to handle and report multiple errors in a user-friendly manner.
-- **String Representations**: The `String()` methods are simplified and may not provide complete representations of complex JSON structures.
-- **Performance**: Large JSON files may not be handled efficiently, and performance optimizations could be introduced.
-- **Number Validation**: Additional validation could be added for number formats to ensure compliance with the JSON specification.
+- **Number Handling**: 
+  - Currently, number values are stored as both integers and floats as part of the `NumberLiteral` struct. This dual representation is cumbersome for direct numerical operations and requires explicit type checking and conversion by the user.
+  
+- **Error Recovery**: 
+  - The parser stops at the first encountered error. Improved error recovery mechanisms could be introduced to handle and report multiple errors gracefully, allowing partial parsing of valid sections of the JSON.
+
+- **Streaming JSON**: 
+  - While the `readChunk` method exists to support streaming mode, its implementation needs thorough verification and testing to ensure it effectively handles large JSON documents streamed in chunks without missing or corrupting data.
+
+- **Performance**: 
+  - Parsing large JSON files into memory could lead to inefficiencies, especially because the lexer and parser currently rely on in-memory strings and buffers. Optimizations could be made to improve performance, especially for memory-intensive operations.
+
+- **String Representations**: 
+  - The `String()` methods are simplified and may not provide complete or accurate representations of complex JSON structures, particularly when handling nested objects or arrays with escape sequences.
+
+- **Lack of Customization**: 
+  - While extensive, the existing configurations and error handling rules are somewhat rigid. Allowing more customization in terms of linting rules or parse-time options could enhance the utility of the parser for various use cases.
+
+- **UTF-8 Handling**: 
+  - The lexer currently supports UTF-8 decoding, but there may be edge cases with complex Unicode characters or mixing different encodings which require thorough testing and validation to ensure robustness.
+
+By addressing these issues, the JSON parser can become more robust, efficient, and user-friendly.
 
 ## Contributing
 
