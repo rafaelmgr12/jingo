@@ -222,25 +222,25 @@ go test ./...
 
 ## Known Issues and Limitations
 
-- **Number Handling**: 
+- **Number Handling**:
   - Currently, number values are stored as both integers and floats as part of the `NumberLiteral` struct. This dual representation is cumbersome for direct numerical operations and requires explicit type checking and conversion by the user.
   
-- **Error Recovery**: 
+- **Error Recovery**:
   - The parser stops at the first encountered error. Improved error recovery mechanisms could be introduced to handle and report multiple errors gracefully, allowing partial parsing of valid sections of the JSON.
 
-- **Streaming JSON**: 
+- **Streaming JSON**:
   - While the `readChunk` method exists to support streaming mode, its implementation needs thorough verification and testing to ensure it effectively handles large JSON documents streamed in chunks without missing or corrupting data.
 
-- **Performance**: 
+- **Performance**:
   - Parsing large JSON files into memory could lead to inefficiencies, especially because the lexer and parser currently rely on in-memory strings and buffers. Optimizations could be made to improve performance, especially for memory-intensive operations.
 
-- **String Representations**: 
+- **String Representations**:
   - The `String()` methods are simplified and may not provide complete or accurate representations of complex JSON structures, particularly when handling nested objects or arrays with escape sequences.
 
-- **Lack of Customization**: 
+- **Lack of Customization**:
   - While extensive, the existing configurations and error handling rules are somewhat rigid. Allowing more customization in terms of linting rules or parse-time options could enhance the utility of the parser for various use cases.
 
-- **UTF-8 Handling**: 
+- **UTF-8 Handling**:
   - The lexer currently supports UTF-8 decoding, but there may be edge cases with complex Unicode characters or mixing different encodings which require thorough testing and validation to ensure robustness.
 
 By addressing these issues, the JSON parser can become more robust, efficient, and user-friendly.
