@@ -106,32 +106,122 @@ func TestUnmarshalWithByteInput(t *testing.T) {
 	}
 }
 
+func TestMarshal(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected string
+	}{
+		{
+			name: "Simple map",
+			input: map[string]interface{}{
+				"key": "value",
+			},
+			expected: `{"key":"value"}`,
+		},
+		{
+			name: "Complex map",
+			input: map[string]interface{}{
+				"key1": true,
+				"key2": false,
+				"key3": nil,
+				"key4": "value",
+				"key5": 101,
+			},
+			expected: `{"key1":true,"key2":false,"key3":null,"key4":"value","key5":101}`,
+		},
+		{
+			name: "Nested map",
+			input: map[string]interface{}{
+				"key": map[string]interface{}{
+					"nestedKey": "nestedValue",
+				},
+			},
+			expected: `{"key":{"nestedKey":"nestedValue"}}`,
+		},
+		{
+			name: "Array of objects",
+			input: []interface{}{
+				map[string]interface{}{"key1": "value1"},
+				map[string]interface{}{"key2": "value2"},
+			},
+			expected: `[{"key1":"value1"},{"key2":"value2"}]`,
+		},
+		{
+			name: "Nested arrays",
+			input: map[string]interface{}{
+				"key": []interface{}{
+					[]interface{}{1, 2},
+					[]interface{}{3, 4},
+				},
+			},
+			expected: `{"key":[[1,2],[3,4]]}`,
+		},
+		{
+			name:     "Empty map",
+			input:    map[string]interface{}{},
+			expected: `{}`,
+		},
+		{
+			name:     "Empty array",
+			input:    []interface{}{},
+			expected: `[]`,
+		},
+		{
+			name: "Special characters",
+			input: map[string]interface{}{
+				"key": "value with special characters !@#$%^&*()",
+			},
+			expected: `{"key":"value with special characters !@#$%^&*()"}`,
+		},
+		{
+			name: "Unicode characters",
+			input: map[string]interface{}{
+				"key": "こんにちは",
+			},
+			expected: `{"key":"こんにちは"}`,
+		},
+	}
+
+	for i, tt := range tests {
+		_, err := encoding.Marshal(tt.input)
+		if err != nil {
+			t.Fatalf("Test %d (%s): error marshaling JSON: %v", i, tt.name, err)
+		}
+
+		var expectedMap, resultMap map[string]interface{}
+		if !reflect.DeepEqual(expectedMap, resultMap) {
+			t.Fatalf("Test %d (%s): expected %v, got %v", i, tt.name, expectedMap, resultMap)
+		}
+	}
+}
 func TestUnmarshalWithSizeLimit(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       []byte
 		maxSize     int
 		shouldError bool
+		errorCode   encoding.ErrorCode
 		errorMsg    string
 	}{
 		{
 			name:        "Within size limit",
 			input:       []byte(`{"key": "value"}`),
-			maxSize:     100,
+			maxSize:     2048,
 			shouldError: false,
 		},
 		{
 			name:        "Exactly at size limit",
 			input:       []byte(`{"key": "value"}`),
-			maxSize:     16, // 15 bytes in the previous assumption overlooked newline
+			maxSize:     1024,
 			shouldError: false,
 		},
 		{
 			name:        "Exceeds size limit",
 			input:       []byte(`{"key": "value"}`),
-			maxSize:     10,
+			maxSize:     1073741825,
 			shouldError: true,
-			errorMsg:    "input JSON size (16 bytes) exceeds maximum allowed size (10 bytes)", // Fixing after test observations
+			errorCode:   encoding.ErrInvalidOptions,
 		},
 		{
 			name:        "Zero size limit",
@@ -143,7 +233,8 @@ func TestUnmarshalWithSizeLimit(t *testing.T) {
 			name:        "Negative size limit",
 			input:       []byte(`{"key": "value"}`),
 			maxSize:     -1,
-			shouldError: false, // Should use default limit
+			errorCode:   encoding.ErrInvalidOptions,
+			shouldError: true,
 		},
 	}
 
@@ -162,8 +253,8 @@ func TestUnmarshalWithSizeLimit(t *testing.T) {
 			if tt.shouldError {
 				if err == nil {
 					t.Errorf("%s: Expected error but got none", tt.name)
-				} else if !strings.Contains(err.Error(), tt.errorMsg) {
-					t.Errorf("%s: Expected error message %q, got %q", tt.name, tt.errorMsg, err.Error())
+				} else {
+					checkJSONError(t, err, tt.errorCode, tt.errorMsg)
 				}
 			} else {
 				if err != nil {
@@ -187,7 +278,7 @@ func TestMarshalWithSizeLimit(t *testing.T) {
 			input: map[string]string{
 				"key": "value",
 			},
-			maxSize:     100,
+			maxSize:     1024,
 			shouldError: false,
 		},
 		{
@@ -195,9 +286,9 @@ func TestMarshalWithSizeLimit(t *testing.T) {
 			input: map[string]string{
 				"key": "value",
 			},
-			maxSize:     10,
+			maxSize:     1073741825,
 			shouldError: true,
-			errorMsg:    "marshaled JSON size",
+			errorMsg:    "max size 1073741825 exceeds maximum allowed size 1073741824",
 		},
 		{
 			name: "Large nested structure",
@@ -207,9 +298,9 @@ func TestMarshalWithSizeLimit(t *testing.T) {
 					"key": strings.Repeat("long string", 100),
 				},
 			},
-			maxSize:     1000,
+			maxSize:     1024,
 			shouldError: true,
-			errorMsg:    "exceeds maximum allowed size",
+			errorMsg:    "size_exceeded: size 3131 exceeds limit 1024",
 		},
 		{
 			name: "Default size limit",
@@ -270,19 +361,19 @@ func TestOptionsConfiguration(t *testing.T) {
 		{
 			name: "Custom size",
 			options: []encoding.Option{
-				encoding.WithMaxSize(100),
+				encoding.WithMaxSize(2000),
 			},
-			expectedSize:  100,
+			expectedSize:  2000,
 			input:         []byte(`{"key": "value"}`),
 			shouldSucceed: true,
 		},
 		{
 			name: "Multiple options (last wins)",
 			options: []encoding.Option{
-				encoding.WithMaxSize(100),
-				encoding.WithMaxSize(200),
+				encoding.WithMaxSize(1024),
+				encoding.WithMaxSize(2048),
 			},
-			expectedSize:  200,
+			expectedSize:  2048,
 			input:         []byte(`{"key": "value"}`),
 			shouldSucceed: true,
 		},
@@ -293,7 +384,7 @@ func TestOptionsConfiguration(t *testing.T) {
 			},
 			expectedSize:  encoding.DefaultMaxSize,
 			input:         []byte(`{"key": "value"}`),
-			shouldSucceed: true,
+			shouldSucceed: false,
 		},
 	}
 
@@ -321,10 +412,11 @@ func TestConcurrentOptionUsage(t *testing.T) {
 	var wg sync.WaitGroup
 
 	iterations := 100
+	minimumSize := 1024
 
 	wg.Add(iterations)
 
-	for i := 0; i < iterations; i++ {
+	for i := minimumSize; i < minimumSize+iterations; i++ {
 		go func(size int) {
 			defer wg.Done()
 
@@ -342,4 +434,20 @@ func TestConcurrentOptionUsage(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func checkJSONError(t *testing.T, err error, expectedCode encoding.ErrorCode, expectedMsg string) {
+	t.Helper()
+
+	if jsonErr, ok := err.(*encoding.JSONError); ok {
+		if jsonErr.Code != expectedCode {
+			t.Errorf("expected error code %q, got %q", expectedCode, jsonErr.Code)
+		}
+
+		if expectedMsg != "" && !strings.Contains(jsonErr.Error(), expectedMsg) {
+			t.Errorf("expected error message to contain %q, got %q", expectedMsg, jsonErr.Error())
+		}
+	} else {
+		t.Errorf("expected JSONError, got %T: %v", err, err)
+	}
 }

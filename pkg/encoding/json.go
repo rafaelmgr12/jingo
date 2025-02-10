@@ -13,23 +13,26 @@ import (
 func Marshal(v interface{}, opts ...Option) ([]byte, error) {
 	options, err := applyOptions(opts...)
 	if err != nil {
-		return nil, err
+		return nil, NewJSONError(ErrInvalidOptions, "invalid options configuration").
+			WithCause(err)
 	}
 
 	value, err := marshalValue(reflect.ValueOf(v))
 	if err != nil {
-		return nil, fmt.Errorf("marshal error: %v", err)
+		return nil, NewJSONError(ErrMarshalFailure, "failed to marshal value").
+			WithCause(err).
+			WithValue(v)
 	}
 
 	var b strings.Builder
 	if err := writeValue(&b, value); err != nil {
-		return nil, fmt.Errorf("writing error: %v", err)
+		return nil, NewJSONError(ErrMarshalFailure, "failed to write value").
+			WithCause(err)
 	}
 
 	result := []byte(b.String())
-	if len(result) > options.MaxSize {
-		return nil, fmt.Errorf("marshaled JSON size (%d bytes) exceeds maximum allowed size (%d bytes)",
-			len(result), options.MaxSize)
+	if !options.DisableSizeLimit && len(result) > options.MaxSize {
+		return nil, NewSizeExceededError(len(result), options.MaxSize)
 	}
 
 	return result, nil
@@ -40,12 +43,17 @@ func Marshal(v interface{}, opts ...Option) ([]byte, error) {
 func Unmarshal(data []byte, v interface{}, opts ...Option) error {
 	options, err := applyOptions(opts...)
 	if err != nil {
-		return err
+		return NewJSONError(ErrInvalidOptions, "invalid options configuration").
+			WithCause(err)
 	}
 
-	if len(data) > options.MaxSize {
-		return fmt.Errorf("input JSON size (%d bytes) exceeds maximum allowed size (%d bytes)",
-			len(data), options.MaxSize)
+	if !options.DisableSizeLimit && len(data) > options.MaxSize {
+		return NewSizeExceededError(len(data), options.MaxSize)
+	}
+
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return NewInvalidTargetError("unmarshal target must be a non-nil pointer")
 	}
 
 	l := parser.NewLexer(string(data))
@@ -53,15 +61,17 @@ func Unmarshal(data []byte, v interface{}, opts ...Option) error {
 
 	value, err := p.ParseJSON()
 	if err != nil {
-		return fmt.Errorf("parse error: %v", err)
+		return NewJSONError(ErrInvalidJSON, "failed to parse JSON").
+			WithCause(err)
 	}
 
-	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() {
-		return fmt.Errorf("unmarshal target must be a non-nil pointer")
+	if err := unmarshalValue(value, rv.Elem()); err != nil {
+		return NewJSONError(ErrUnmarshalFailure, "failed to unmarshal value").
+			WithCause(err).
+			WithValue(v)
 	}
 
-	return unmarshalValue(value, rv.Elem())
+	return nil
 }
 
 // marshalValue converts a reflect.Value to a parser.Value
