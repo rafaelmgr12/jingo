@@ -8,9 +8,11 @@ import (
 	"github.com/rafaelmgr12/jingo/pkg/parser"
 )
 
-// Marshal converts a Go value into a JSON string.
+// Marshal converts a Go value into a JSON string with optional configuration.
 // It handles all basic Go types including interface{}, maps, slices, arrays, and structs.
-func Marshal(v interface{}) ([]byte, error) {
+func Marshal(v interface{}, opts ...Option) ([]byte, error) {
+	options := applyOptions(opts...)
+
 	value, err := marshalValue(reflect.ValueOf(v))
 	if err != nil {
 		return nil, fmt.Errorf("marshal error: %v", err)
@@ -21,12 +23,25 @@ func Marshal(v interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("writing error: %v", err)
 	}
 
-	return []byte(b.String()), nil
+	result := []byte(b.String())
+	if len(result) > options.MaxSize {
+		return nil, fmt.Errorf("marshaled JSON size (%d bytes) exceeds maximum allowed size (%d bytes)",
+			len(result), options.MaxSize)
+	}
+
+	return result, nil
 }
 
 // Unmarshal parses JSON data and stores the result in the value pointed to by v.
 // The target value must be a non-nil pointer.
-func Unmarshal(data []byte, v interface{}) error {
+func Unmarshal(data []byte, v interface{}, opts ...Option) error {
+	options := applyOptions(opts...)
+
+	if len(data) > options.MaxSize {
+		return fmt.Errorf("input JSON size (%d bytes) exceeds maximum allowed size (%d bytes)",
+			len(data), options.MaxSize)
+	}
+
 	l := parser.NewLexer(string(data))
 	p := parser.NewParser(l)
 
