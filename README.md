@@ -75,40 +75,7 @@ Represents the structure of the JSON data:
 
 ### Parsing JSON
 
-```go
-package main
-
-import (
-    "fmt"
-    "log"
-    "github.com/rafaelmgr12/jingo/pkg/parser"
-)
-
-func main() {
-    // Create a new lexer with JSON input
-    input := `{"name": "John", "age": 30}`
-    lexer := parser.NewLexer(input)
-
-    // Create a parser with the lexer
-    p := parser.NewParser(lexer)
-
-    // Parse the JSON and handle any errors
-    value, err := p.ParseJSON()
-    if err != nil {
-        log.Fatalf("Error parsing JSON: %v", err)
-    }
-
-    // Type assert to access the parsed data
-    if obj, ok := value.(*parser.Object); ok {
-        // Access object properties
-        fmt.Println(obj.Pairs)
-    }
-}
-```
-
-### Serializing JSON
-
-After parsing JSON, you might want to serialize it back to a string format.
+First, you need to parse JSON strings into Go structures. Here’s an example that demonstrates how to parse a JSON string:
 
 ```go
 package main
@@ -121,9 +88,7 @@ import (
 
 func main() {
     // JSON input
-    input := `{"name": "John", "age": 30, "address": {"street": "123 Main St", "city": "New York"}}`
-
-    // Parse JSON
+    input := `{"name": "John", "age": 30}`
     lexer := parser.NewLexer(input)
     p := parser.NewParser(lexer)
     value, err := p.ParseJSON()
@@ -131,18 +96,18 @@ func main() {
         log.Fatalf("Error parsing JSON: %v", err)
     }
 
-    // Serialize JSON
+    // Access parsed data
     if obj, ok := value.(*parser.Object); ok {
-        jsonStr, err := obj.ToJSON()
-        if err != nil {
-            log.Fatalf("Error serializing JSON: %v", err)
-        }
-        fmt.Println("Serialized JSON:", jsonStr)
+        fmt.Println("Parsed JSON:", obj.Pairs)
     }
 }
 ```
 
-### Sending JSON over HTTP
+This example creates a lexer and a parser, then parses the JSON string, and finally prints the parsed data.
+
+### Serializing JSON
+
+You can also serialize Go data structures back into JSON strings:
 
 ```go
 package main
@@ -150,14 +115,49 @@ package main
 import (
     "fmt"
     "log"
+    "github.com/rafaelmgr12/jingo/pkg/encoding"
+)
+
+func main() {
+    // Go data structure to be serialized
+    data := map[string]interface{}{
+        "name": "John",
+        "age":  30,
+        "address": map[string]string{
+            "street": "123 Main St",
+            "city":   "New York",
+        },
+    }
+
+    // Serialize the data to JSON
+    jsonStr, err := encoding.Marshal(data)
+    if err != nil {
+        log.Fatalf("Error serializing to JSON: %v", err)
+    }
+    fmt.Println("Serialized JSON:", string(jsonStr))
+}
+```
+
+This example shows how to use the `Marshal` function to convert a Go data structure into a JSON string.
+
+### Sending JSON over HTTP
+
+You can send JSON data over HTTP using the following example:
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "net/http"
+    "github.com/rafaelmgr12/jingo/pkg/encoding"
     "github.com/rafaelmgr12/jingo/pkg/parser"
 )
 
 func main() {
     // JSON input
     input := `{"name": "John Doe", "age": 30}`
-
-    // Parse JSON
     lexer := parser.NewLexer(input)
     p := parser.NewParser(lexer)
     value, err := p.ParseJSON()
@@ -177,7 +177,7 @@ func main() {
     headers := map[string]string{
         "Authorization": "Bearer example-token",
     }
-    resp, err := parser.SendJSON("http://example.com/api", jsonStr, headers)
+    resp, err := SendJSON("http://example.com/api", jsonStr, headers)
     if err != nil {
         log.Fatalf("Error sending JSON: %v", err)
     }
@@ -185,7 +185,23 @@ func main() {
 
     fmt.Println("Response status:", resp.Status)
 }
+
+// SendJSON is a helper function to send JSON data over HTTP
+func SendJSON(url, jsonStr string, headers map[string]string) (*http.Response, error) {
+    client := &http.Client{}
+    req, err := http.NewRequest("POST", url, strings.NewReader(jsonStr))
+    if err != nil {
+        return nil, err
+    }
+    req.Header.Set("Content-Type", "application/json")
+    for key, value := range headers {
+        req.Header.Set(key, value)
+    }
+    return client.Do(req)
+}
 ```
+
+This example demonstrates how to parse JSON, serialize it, and then send it via an HTTP POST request.
 
 ## Error Handling
 
