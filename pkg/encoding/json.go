@@ -79,6 +79,7 @@ func marshalValue(v reflect.Value) (parser.Value, error) {
 	if v.Kind() == reflect.Interface && !v.IsNil() {
 		v = v.Elem()
 	}
+
 	if v.Type().Implements(reflect.TypeOf((*Marshaler)(nil)).Elem()) {
 		marshaler := v.Interface().(Marshaler)
 
@@ -221,7 +222,6 @@ func marshalValue(v reflect.Value) (parser.Value, error) {
 
 // unmarshalValue converts a parser.Value to a reflect.Value
 func unmarshalValue(v parser.Value, rv reflect.Value) error {
-
 	if unmarshaler, ok := rv.Addr().Interface().(Unmarshaler); ok {
 		var b strings.Builder
 
