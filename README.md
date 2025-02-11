@@ -16,6 +16,7 @@ A recursive descent JSON parser implemented in Go that supports parsing JSON obj
 - Abstract Syntax Tree (AST) generation
 - Whitespace and newline handling
 - Support for escape sequences in strings
+- Custom marshaling and unmarshaling support
 
 ## Project Structure
 
@@ -30,8 +31,12 @@ jingo/
 │   │   └── interface.go  # Parser interfaces
 │   └── encoding/         # Encoding/decoding layer
 │       ├── json.go       # Main Marshal/Unmarshal implementation
+│       ├── marshaller.go # Marshaler and Unmarshaler interfaces
+│       ├── options.go    # Configuration options
 │       └── stream.go     # Streaming encoder/decoder
 ├── examples/             # Usage examples
+│   ├── example_test.go       # General examples
+│   ├── example_custom_test.go # Custom marshaling/unmarshaling examples
 ├── docs/                 # Documentation
 ```
 
@@ -41,7 +46,7 @@ jingo/
 
 Defines the token types and structures used in JSON parsing:
 
-- Structural tokens ({, }, [, ], :, ,)
+- Structural tokens (`{`, `}`, `[`, `]`, `:`, `,`)
 - Value tokens (string, number, true, false, null)
 - Special tokens (EOF, ILLEGAL)
 
@@ -63,7 +68,7 @@ Performs syntactic analysis and builds an Abstract Syntax Tree:
 - Support for nested structures
 - Validates JSON syntax
 
-### AST (Abstract Syntax Tree)
+### AST
 
 Represents the structure of the JSON data:
 
@@ -71,11 +76,18 @@ Represents the structure of the JSON data:
 - Arrays with ordered elements
 - Various literal types (string, number, boolean, null)
 
+### Encoding
+
+Provides functions to marshal Go data structures into JSON strings and unmarshal JSON strings into Go data structures:
+
+- Marshal and Unmarshal functions with optional configuration
+- Support for custom marshaling/unmarshaling through interfaces
+
 ## Usage
 
 ### Parsing JSON
 
-First, you need to parse JSON strings into Go structures. Here’s an example that demonstrates how to parse a JSON string:
+You need to parse JSON strings into Go structures. Here’s an example that demonstrates how to parse a JSON string:
 
 ```go
 package main
@@ -102,8 +114,6 @@ func main() {
     }
 }
 ```
-
-This example creates a lexer and a parser, then parses the JSON string, and finally prints the parsed data.
 
 ### Serializing JSON
 
@@ -138,7 +148,81 @@ func main() {
 }
 ```
 
-This example shows how to use the `Marshal` function to convert a Go data structure into a JSON string.
+### Custom Marshaling/Unmarshaling
+
+You can define your own custom marshaling and unmarshaling for your types by implementing the `Marshaler` and `Unmarshaler` interfaces:
+
+```go
+package examples
+
+import (
+    "fmt"
+    "github.com/rafaelmgr12/jingo/pkg/encoding"
+    "testing"
+)
+
+// CustomStruct demonstrates a complex struct with custom JSON marshaling/unmarshaling
+type CustomStruct struct {
+    Name string
+    Age  int
+}
+
+// MarshalJSON is a custom marshaling function
+func (cs *CustomStruct) MarshalJSON() ([]byte, error) {
+    return []byte(fmt.Sprintf(`{"custom_name":"%s","custom_age":%d}`, cs.Name, cs.Age)), nil
+}
+
+// UnmarshalJSON is a custom unmarshaling function
+func (cs *CustomStruct) UnmarshalJSON(data []byte) error {
+    var temp struct {
+        CustomName string `json:"custom_name"`
+        CustomAge  int    `json:"custom_age"`
+    }
+    fmt.Println("UnmarshalJSON called with data:", string(data))
+    if err := encoding.Unmarshal(data, &temp); err != nil {
+        return err
+    }
+    cs.Name = temp.CustomName
+    cs.Age = temp.CustomAge
+    return nil
+}
+
+func ExampleCustomStruct() {
+    cs := &CustomStruct{Name: "Alice", Age: 28}
+
+    // Test Marshaling
+    data, err := encoding.Marshal(cs)
+    if err != nil {
+        fmt.Printf("Error marshaling custom struct: %v\n", err)
+        return
+    }
+
+    expectedJSON := `{"custom_name":"Alice","custom_age":28}`
+    gotJSON := string(data)
+    if gotJSON != expectedJSON {
+        fmt.Printf("Marshaling failed: expected %s, got %s\n", expectedJSON, gotJSON)
+        return
+    }
+    fmt.Println("Marshaling Success:", gotJSON)
+
+    // Test Unmarshaling
+    newCS := &CustomStruct{}
+    if err := encoding.Unmarshal([]byte(expectedJSON), newCS); err != nil {
+        fmt.Printf("Error unmarshaling custom struct: %v\n", err)
+        return
+    }
+    if newCS.Name != "Alice" || newCS.Age != 28 {
+        fmt.Printf("Unmarshaling failed: expected {Name: Alice, Age: 28}, got {Name: %s, Age: %d}\n", newCS.Name, newCS.Age)
+        return
+    }
+    fmt.Printf("Unmarshaling Success: {Name: %s, Age: %d}\n", newCS.Name, newCS.Age)
+
+    // Output:
+    // Marshaling Success: {"custom_name":"Alice","custom_age":28}
+    // UnmarshalJSON called with data: {"custom_name":"Alice","custom_age":28}
+    // Unmarshaling Success: {Name: Alice, Age: 28}
+}
+```
 
 ### Sending JSON over HTTP
 
@@ -166,18 +250,19 @@ func main() {
     }
 
     // Serialize JSON
-    jsonStr, err := value.(*parser.Object).ToJSON()
+    jsonStr, err := encoding.Marshal(value)
     if err != nil {
         log.Fatalf("Error serializing JSON: %v", err)
     }
     
-    fmt.Println("Serialized JSON:", jsonStr)
+    fmt.Println("Serialized JSON:", string(jsonStr))
 
     // Send JSON via HTTP
     headers := map[string]string{
         "Authorization": "Bearer example-token",
     }
-    resp, err := SendJSON("http://example.com/api", jsonStr, headers)
+
+    resp, err := SendJSON("http://example.com/api", string(jsonStr), headers)
     if err != nil {
         log.Fatalf("Error sending JSON: %v", err)
     }
@@ -200,8 +285,6 @@ func SendJSON(url, jsonStr string, headers map[string]string) (*http.Response, e
     return client.Do(req)
 }
 ```
-
-This example demonstrates how to parse JSON, serialize it, and then send it via an HTTP POST request.
 
 ## Error Handling
 
