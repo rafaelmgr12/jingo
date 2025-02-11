@@ -76,9 +76,26 @@ func Unmarshal(data []byte, v interface{}, opts ...Option) error {
 
 // marshalValue converts a reflect.Value to a parser.Value
 func marshalValue(v reflect.Value) (parser.Value, error) {
-	// Handle interface{} values
 	if v.Kind() == reflect.Interface && !v.IsNil() {
 		v = v.Elem()
+	}
+	if v.Type().Implements(reflect.TypeOf((*Marshaler)(nil)).Elem()) {
+		marshaler := v.Interface().(Marshaler)
+
+		data, err := marshaler.MarshalJSON()
+		if err != nil {
+			return nil, NewJSONError(ErrMarshalFailure, "failed to marshal value").WithCause(err)
+		}
+
+		l := parser.NewLexer(data)
+		p := parser.NewParser(l)
+
+		value, err := p.ParseJSON()
+		if err != nil {
+			return nil, NewJSONError(ErrInvalidJSON, "failed to parse JSON").WithCause(err)
+		}
+
+		return value, nil
 	}
 
 	switch v.Kind() {
@@ -204,8 +221,23 @@ func marshalValue(v reflect.Value) (parser.Value, error) {
 
 // unmarshalValue converts a parser.Value to a reflect.Value
 func unmarshalValue(v parser.Value, rv reflect.Value) error {
+
+	if unmarshaler, ok := rv.Addr().Interface().(Unmarshaler); ok {
+		var b strings.Builder
+
+		if err := writeValue(&b, v); err != nil {
+			return NewJSONError(ErrUnmarshalFailure, "failed to write value").WithCause(err)
+		}
+
+		if err := unmarshaler.UnmarshalJSON([]byte(b.String())); err != nil {
+			return NewJSONError(ErrUnmarshalFailure, "failed to unmarshal value").WithCause(err)
+		}
+
+		return nil
+	}
+
 	if v == nil {
-		return fmt.Errorf("cannot unmarshal nil value")
+		return NewJSONError(ErrUnmarshalFailure, "value is nil")
 	}
 
 	if rv.Kind() == reflect.Interface && rv.NumMethod() == 0 {
