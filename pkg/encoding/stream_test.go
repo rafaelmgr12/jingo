@@ -37,7 +37,6 @@ func TestNewDecoder(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			reader := strings.NewReader(tt.input)
 			decoder, err := encoding.NewDecoder(reader, tt.options...)
 
@@ -185,10 +184,8 @@ func TestOptions(t *testing.T) {
 				if !strings.Contains(err.Error(), tt.expectedErr) {
 					t.Fatalf("Expected error to contain %v, but got %v", tt.expectedErr, err)
 				}
-			} else {
-				if err != nil {
-					t.Fatalf("Unexpected error: %v", err)
-				}
+			} else if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
 			}
 		})
 	}

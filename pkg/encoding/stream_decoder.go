@@ -58,7 +58,6 @@ func (d *streamDecoder) Decode(v interface{}) error {
 	}
 
 	return unmarshalValue(value, reflect.ValueOf(v).Elem())
-
 }
 
 // More implements JSONDecoder.More
