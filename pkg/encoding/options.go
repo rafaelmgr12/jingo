@@ -24,6 +24,9 @@ type Options struct {
 
 	// StrictMode enables additional validation during parsing
 	StrictMode bool
+
+	// BufferSize defines the size of the internal buffer
+	BufferSize int
 }
 
 // Validate checks if the options are valid
@@ -81,6 +84,19 @@ func WithDisableSizeLimit() Option {
 func WithStrictMode() Option {
 	return func(o *Options) error {
 		o.StrictMode = true
+
+		return nil
+	}
+}
+
+// WithBufferSize sets the buffer size for encoding/decoding
+func WithBufferSize(size int) Option {
+	return func(o *Options) error {
+		if size <= 0 {
+			return fmt.Errorf("buffer size must be positive, got %d", size)
+		}
+
+		o.BufferSize = size
 
 		return nil
 	}
