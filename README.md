@@ -16,28 +16,32 @@ A recursive descent JSON parser implemented in Go that supports parsing JSON obj
 - Abstract Syntax Tree (AST) generation
 - Whitespace and newline handling
 - Support for escape sequences in strings
-- Custom marshaling and unmarshaling support
+- Custom marshaling and unmarshaling support through interfaces
+- Streaming JSON encoding/decoding
 
 ## Project Structure
 
 ```bash
 jingo/
 ├── pkg/
-│   ├── parser/           # Core parsing components
-│   │   ├── ast.go        # Abstract Syntax Tree implementation
-│   │   ├── lexer.go      # Lexical analyzer
-│   │   ├── parser.go     # JSON parser
-│   │   ├── token.go      # Token definitions
-│   │   └── interface.go  # Parser interfaces
-│   └── encoding/         # Encoding/decoding layer
-│       ├── json.go       # Main Marshal/Unmarshal implementation
-│       ├── marshaller.go # Marshaler and Unmarshaler interfaces
-│       ├── options.go    # Configuration options
-│       └── stream.go     # Streaming encoder/decoder
-├── examples/             # Usage examples
-│   ├── example_test.go       # General examples
-│   ├── example_custom_test.go # Custom marshaling/unmarshaling examples
-├── docs/                 # Documentation
+│   ├── parser/                   # Core parsing components
+│   │   ├── ast.go                # Abstract Syntax Tree implementation
+│   │   ├── lexer.go              # Lexical analyzer
+│   │   ├── parser.go             # JSON parser
+│   │   ├── token.go              # Token definitions
+│   │   └── interface.go          # Parser interfaces
+│   └── encoding/                 # Encoding/decoding layer
+│       ├── json.go               # Main Marshal/Unmarshal implementation
+│       ├── marshaller.go         # Marshaler and Unmarshaler interfaces
+│       ├── options.go            # Configuration options
+│       ├── stream_encoder.go     # Streaming encoder implementation
+│       ├── stream_decoder.go     # Streaming decoder implementation
+│       ├── interfaces.go         # Encoder/Decoder interfaces
+│       └── errors.go             # Error definitions
+├── examples/                     # Usage examples
+│   ├── example_test.go           # General examples
+│   ├── example_custom_test.go    # Custom marshaling/unmarshaling examples
+├── docs/                         # Documentation
 ```
 
 ## Components
@@ -46,9 +50,9 @@ jingo/
 
 Defines the token types and structures used in JSON parsing:
 
-- Structural tokens (`{`, `}`, `[`, `]`, `:`, `,`)
-- Value tokens (string, number, true, false, null)
-- Special tokens (EOF, ILLEGAL)
+- Structural tokens: (`{`, `}`, `[`, `]`, `:`, `,`)
+- Value tokens: (string, number, true, false, null)
+- Special tokens: (EOF, ILLEGAL)
 
 ### Lexer
 
@@ -68,7 +72,7 @@ Performs syntactic analysis and builds an Abstract Syntax Tree:
 - Support for nested structures
 - Validates JSON syntax
 
-### AST
+### AST (Abstract Syntax Tree)
 
 Represents the structure of the JSON data:
 
@@ -80,8 +84,10 @@ Represents the structure of the JSON data:
 
 Provides functions to marshal Go data structures into JSON strings and unmarshal JSON strings into Go data structures:
 
-- Marshal and Unmarshal functions with optional configuration
-- Support for custom marshaling/unmarshaling through interfaces
+- `Marshal` and `Unmarshal` functions with optional configuration
+- Support for custom marshaling/unmarshaling through interfaces (`Marshaler` and `Unmarshaler`)
+- Options for controlling encoding/decoding behaviors, such as size limits and strict mode
+- Streaming JSON encoder/decoder with buffer configurations
 
 ## Usage
 
@@ -323,24 +329,24 @@ go test ./...
 
 - **Number Handling**:
   - Currently, number values are stored as both integers and floats as part of the `NumberLiteral` struct. This dual representation is cumbersome for direct numerical operations and requires explicit type checking and conversion by the user.
-  
+
 - **Error Recovery**:
   - The parser stops at the first encountered error. Improved error recovery mechanisms could be introduced to handle and report multiple errors gracefully, allowing partial parsing of valid sections of the JSON.
 
 - **Streaming JSON**:
-  - While the `readChunk` method exists to support streaming mode, its implementation needs thorough verification and testing to ensure it effectively handles large JSON documents streamed in chunks without missing or corrupting data.
+  - While streaming mode is supported through `stream_encoder.go` and `stream_decoder.go`, its implementation requires thorough verification and testing to ensure it effectively handles large JSON documents streamed in chunks without missing or corrupting data.
 
 - **Performance**:
-  - Parsing large JSON files into memory could lead to inefficiencies, especially because the lexer and parser currently rely on in-memory strings and buffers. Optimizations could be made to improve performance, especially for memory-intensive operations.
+  - Parsing large JSON files into memory may lead to inefficiencies, especially because the lexer and parser currently rely on in-memory strings and buffers. Optimizations could be made to improve performance, especially for memory-intensive operations.
 
 - **String Representations**:
-  - The `String()` methods are simplified and may not provide complete or accurate representations of complex JSON structures, particularly when handling nested objects or arrays with escape sequences.
+  - The `String()` methods are simplified and might not provide accurate representations of complex JSON structures, particularly when handling nested objects or arrays with escape sequences.
 
 - **Lack of Customization**:
-  - While extensive, the existing configurations and error handling rules are somewhat rigid. Allowing more customization in terms of linting rules or parse-time options could enhance the utility of the parser for various use cases.
+  - While extensive, the existing configurations and error handling rules could be considered somewhat rigid. Allowing more customization in terms of linting rules or parse-time options could enhance the parser's utility for various use cases.
 
 - **UTF-8 Handling**:
-  - The lexer currently supports UTF-8 decoding, but there may be edge cases with complex Unicode characters or mixing different encodings which require thorough testing and validation to ensure robustness.
+  - The lexer currently supports UTF-8 decoding, but edge cases with complex Unicode characters or mixed encodings require thorough testing and validation to ensure robustness.
 
 By addressing these issues, the JSON parser can become more robust, efficient, and user-friendly.
 
