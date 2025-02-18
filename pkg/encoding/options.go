@@ -27,6 +27,12 @@ type Options struct {
 
 	// BufferSize defines the size of the internal buffer
 	BufferSize int
+
+	// Indent defines the string used for indentation
+	Indent string
+
+	// Prefix defines the string used for indentation prefix
+	Prefix string
 }
 
 // Validate checks if the options are valid
@@ -98,6 +104,15 @@ func WithBufferSize(size int) Option {
 
 		o.BufferSize = size
 
+		return nil
+	}
+}
+
+// WithIndent sets the indentation string
+func WithIndent(prefix, indent string) Option {
+	return func(o *Options) error {
+		o.Prefix = prefix
+		o.Indent = indent
 		return nil
 	}
 }

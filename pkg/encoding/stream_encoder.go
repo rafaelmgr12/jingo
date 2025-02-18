@@ -48,7 +48,11 @@ func (e *streamEncoder) Encode(v interface{}) error {
 
 	var err error
 
-	data, err = Marshal(v)
+	if e.options.Prefix != "" || e.options.Indent != "" {
+		data, err = MarshalIndent(v, e.options.Prefix, e.options.Indent)
+	} else {
+		data, err = Marshal(v)
+	}
 
 	if err != nil {
 		return NewJSONError(ErrMarshalFailure, "failed to marshal value for stream").

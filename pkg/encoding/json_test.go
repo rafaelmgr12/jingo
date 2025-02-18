@@ -436,6 +436,23 @@ func TestConcurrentOptionUsage(t *testing.T) {
 	wg.Wait()
 }
 
+func TestMarshalIndent(t *testing.T) {
+	input := map[string]interface{}{
+		"name":    "John",
+		"age":     30,
+		"address": map[string]string{"street": "123 Main St", "city": "NY"},
+	}
+
+	data, err := encoding.MarshalIndent(input, "", "  ")
+	if err != nil {
+		t.Fatalf("Failed to marshal with indent: %v", err)
+	}
+
+	if !strings.Contains(string(data), "\n") || !strings.Contains(string(data), "  ") {
+		t.Errorf("Expected indented JSON output, got: %s", string(data))
+	}
+}
+
 func checkJSONError(t *testing.T, err error, expectedCode encoding.ErrorCode, expectedMsg string) {
 	t.Helper()
 

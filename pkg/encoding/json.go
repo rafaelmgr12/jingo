@@ -38,6 +38,77 @@ func Marshal(v interface{}, opts ...Option) ([]byte, error) {
 	return result, nil
 }
 
+// MarshalIndent converts a Go value into a JSON string with optional configuration.
+// It handles all basic Go types including interface{}, maps, slices, arrays, and structs.
+func MarshalIndent(v interface{}, prefix, indent string, opts ...Option) ([]byte, error) {
+	options, err := applyOptions(opts...)
+	if err != nil {
+		return nil, NewJSONError(ErrInvalidOptions, "invalid options configuration").WithCause(err)
+	}
+
+	value, err := marshalValue(reflect.ValueOf(v))
+	if err != nil {
+		return nil, NewJSONError(ErrMarshalFailure, "failed to marshal value").WithCause(err).WithValue(v)
+	}
+
+	var b strings.Builder
+	if err := writeIndentedValue(&b, value, prefix, indent, 0); err != nil {
+		return nil, NewJSONError(ErrMarshalFailure, "failed to write value").WithCause(err)
+	}
+
+	result := []byte(b.String())
+	if !options.DisableSizeLimit && len(result) > options.MaxSize {
+		return nil, NewSizeExceededError(len(result), options.MaxSize)
+	}
+
+	return result, nil
+}
+
+func writeIndentedValue(b *strings.Builder, v parser.Value, prefix, indent string, level int) error {
+	currentIndent := strings.Repeat(indent, level)
+
+	switch val := v.(type) {
+	case *parser.Object:
+		b.WriteString("{\n")
+		i := 0
+		for k, v := range val.Pairs {
+			if i > 0 {
+				b.WriteString(",\n")
+			}
+			b.WriteString(currentIndent + indent)
+			fmt.Fprintf(b, "%q: ", k)
+			if err := writeIndentedValue(b, v, prefix, indent, level+1); err != nil {
+				return err
+			}
+			i++
+		}
+		b.WriteString("\n" + currentIndent + "}")
+	case *parser.Array:
+		b.WriteString("[\n")
+		for i, v := range val.Elements {
+			if i > 0 {
+				b.WriteString(",\n")
+			}
+			b.WriteString(currentIndent + indent)
+			if err := writeIndentedValue(b, v, prefix, indent, level+1); err != nil {
+				return err
+			}
+		}
+		b.WriteString("\n" + currentIndent + "]")
+	case *parser.StringLiteral:
+		fmt.Fprintf(b, "%q", val.Value)
+	case *parser.NumberLiteral:
+		b.WriteString(val.String())
+	case *parser.Boolean:
+		b.WriteString(fmt.Sprintf("%t", val.Value))
+	case *parser.Null:
+		b.WriteString("null")
+	default:
+		return fmt.Errorf("unknown value type: %T", v)
+	}
+	return nil
+}
+
 // Unmarshal parses JSON data and stores the result in the value pointed to by v.
 // The target value must be a non-nil pointer.
 func Unmarshal(data []byte, v interface{}, opts ...Option) error {
